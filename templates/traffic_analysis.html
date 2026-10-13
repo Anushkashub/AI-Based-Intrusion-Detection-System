@@ -50,8 +50,20 @@
                     <p class="text-xs font-bold text-slate-200">
                         Drop your CSV file here, or <span class="text-[#00d2ff] underline">browse</span>
                     </p>
-                    <p class="text-[11px] text-slate-400 font-mono mt-1">Supports CIC-IDS2017 format (.csv)</p>
+                    <p class="text-[11px] text-slate-400 font-mono mt-1">Supports CIC-IDS2017 format (.csv) &bull; Max 20 MB (up to 50,000 flows)</p>
                 </div>
+            </div>
+        </div>
+
+        <!-- CLOUD MEMORY & SAMPLING NOTICE -->
+        <div class="p-3.5 rounded-xl bg-cyan-500/5 border border-cyan-500/20 text-[11px] text-slate-400 font-mono flex items-start gap-2.5">
+            <i data-lucide="info" class="w-4 h-4 text-cyan-400 shrink-0 mt-0.5"></i>
+            <div>
+                <span class="text-slate-200 font-bold">Cloud Memory Limit:</span>
+                Captures up to <span class="text-cyan-400 font-bold">20 MB</span> (up to 50,000 flows) are supported for cloud memory safety.
+                To analyze larger multi-GB datasets (such as 56 MB full-day captures), sample the file before uploading:
+                <code class="text-cyan-300 bg-[#050c18] px-1.5 py-0.5 rounded text-[10px] ml-1">df.head(50000).to_csv('sample.csv', index=False)</code>
+                or use the included synthetic sample dataset.
             </div>
         </div>
 
@@ -172,7 +184,7 @@
                     <a href="{{ url_for('dashboard') }}" class="py-2 rounded-lg bg-[#0c1c38] border border-[#00d2ff]/30 text-xs text-center text-slate-300 hover:text-white font-bold transition">
                         Dashboard
                     </a>
-                    <a href="{{ url_for('download_results') }}" class="py-2 rounded-lg bg-[#0c1c38] border border-[#00d2ff]/30 text-xs text-center text-slate-300 hover:text-white font-bold transition">
+                    <a href="{{ url_for('download_results') }}" id="downloadResultsBtn" class="py-2 rounded-lg bg-[#0c1c38] border border-[#00d2ff]/30 text-xs text-center text-slate-300 hover:text-white font-bold transition">
                         Export CSV
                     </a>
                 </div>
@@ -224,6 +236,11 @@
     function handleFileSelection(file) {
         if (!file.name.toLowerCase().endsWith('.csv')) {
             showAlert('error', 'Invalid File Type', 'Please upload a CSV file (.csv) containing network flow metrics.');
+            return;
+        }
+
+        if (file.size > 20 * 1024 * 1024) {
+            showAlert('error', 'File Size Limit Exceeded', `The selected file is ${(file.size / (1024 * 1024)).toFixed(1)} MB. The platform limit is 20 MB (up to 50,000 flows) for cloud memory safety. Please use a smaller CSV sample (e.g., df.head(50000).to_csv(...)).`);
             return;
         }
 
@@ -289,11 +306,69 @@
         document.getElementById('analysisAlert').classList.add('hidden');
     }
 
+    // Safe Response Parsing Helper
+    async function parseApiResponse(res) {
+        if (res.redirected) {
+            throw new Error('Session expired or redirected by server. Please refresh and log in.');
+        }
+
+        const contentType = res.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        let data = null;
+
+        if (isJson) {
+            try {
+                data = await res.json();
+            } catch (e) {
+                data = null;
+            }
+        }
+
+        if (!res.ok) {
+            if (data && (data.error || data.message)) {
+                throw new Error(data.error || data.message);
+            }
+
+            let errorMsg = `Request failed (HTTP ${res.status}: ${res.statusText || 'Error'})`;
+            if (res.status === 401) {
+                errorMsg = 'Authentication required (HTTP 401). Please refresh and log in.';
+            } else if (res.status === 403) {
+                errorMsg = 'Access forbidden (HTTP 403).';
+            } else if (res.status === 404) {
+                errorMsg = 'Endpoint or analysis job not found (HTTP 404).';
+            } else if (res.status === 405) {
+                errorMsg = 'HTTP method not allowed (HTTP 405).';
+            } else if (res.status === 413) {
+                errorMsg = 'File too large (HTTP 413). Upload must be under 100 MB.';
+            } else if (res.status === 502) {
+                errorMsg = 'Bad Gateway (HTTP 502). The backend server may be restarting.';
+            } else if (res.status === 503) {
+                errorMsg = 'Service Unavailable (HTTP 503). The server is temporarily unavailable.';
+            } else if (res.status === 504) {
+                errorMsg = 'Gateway Timeout (HTTP 504). The server took too long to respond.';
+            } else if (res.status >= 500) {
+                errorMsg = `Server error (HTTP ${res.status}). An internal error occurred.`;
+            }
+            throw new Error(errorMsg);
+        }
+
+        if (!data) {
+            throw new Error('Received unexpected non-JSON response from server. Please refresh and try again.');
+        }
+
+        return data;
+    }
+
     // Run Real CSV Analysis Execution
     async function runAnalysis() {
         if (!selectedFile) {
             showAlert('error', 'No File Selected', 'Please select or drop a CSV network capture file before running analysis.');
             return;
+        }
+
+        if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
         }
 
         const runBtn = document.getElementById('runAnalysisBtn');
@@ -318,15 +393,14 @@
         try {
             const startRes = await fetch('/analyze_csv', {
                 method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 body: formData
             });
 
-            if (!startRes.ok) {
-                const errData = await startRes.json();
-                throw new Error(errData.error || 'Failed to start CSV analysis.');
-            }
-
-            const startData = await startRes.json();
+            const startData = await parseApiResponse(startRes);
             const jobId = startData.job_id;
 
             setStepState(2, 'completed', 'Step 2: Validated', `Verified 78 features across ${startData.valid_rows || 'all'} flows`);
@@ -335,10 +409,14 @@
             // Poll progress
             pollInterval = setInterval(async () => {
                 try {
-                    const pRes = await fetch(`/analysis_progress/${jobId}`);
-                    if (!pRes.ok) throw new Error('Failed to fetch job progress');
+                    const pRes = await fetch(`/analysis_progress/${jobId}`, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
 
-                    const pData = await pRes.json();
+                    const pData = await parseApiResponse(pRes);
                     const pct = pData.progress || 0;
                     progressBar.style.width = pct + '%';
                     statusBadge.textContent = pct + '%';
@@ -346,13 +424,18 @@
 
                     if (pData.status === 'completed') {
                         clearInterval(pollInterval);
-                        onAnalysisSuccess(pData.summary);
+                        pollInterval = null;
+                        onAnalysisSuccess(pData.summary, jobId);
                     } else if (pData.status === 'error') {
                         clearInterval(pollInterval);
-                        throw new Error(pData.error || 'Prediction worker failed');
+                        pollInterval = null;
+                        throw new Error(pData.error || pData.message || 'Prediction worker failed');
                     }
                 } catch (pollErr) {
-                    clearInterval(pollInterval);
+                    if (pollInterval) {
+                        clearInterval(pollInterval);
+                        pollInterval = null;
+                    }
                     onAnalysisError(pollErr.message);
                 }
             }, 800);
@@ -362,7 +445,14 @@
         }
     }
 
-    function onAnalysisSuccess(summary) {
+    function onAnalysisSuccess(summary, jobId) {
+        if (jobId) {
+            const dlBtn = document.getElementById('downloadResultsBtn');
+            if (dlBtn) {
+                dlBtn.href = `/download_results?job_id=${encodeURIComponent(jobId)}`;
+            }
+        }
+
         const runBtn = document.getElementById('runAnalysisBtn');
         const btnText = document.getElementById('btnText');
         const progressBar = document.getElementById('analysisProgressBar');

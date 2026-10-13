@@ -59,6 +59,8 @@ random_forest_model.pkl
 uploads/*
 !uploads/.gitkeep
 results/dashboard_analysis_results.csv
+results/results_*.csv
+results/*.tmp
 *.log
 
 # --- IDEs & Editors ---
