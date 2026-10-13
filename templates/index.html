@@ -1,0 +1,693 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-IDS | Secure Login</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #020b16;
+            --panel: #071a2c;
+            --teal: #12e6d0;
+            --text: #edf7ff;
+            --muted: #91a8bc;
+            --border: rgba(18, 230, 208, 0.22);
+        }
+
+        body {
+            min-height: 100vh;
+            font-family: "Segoe UI", Arial, sans-serif;
+            background:
+                radial-gradient(ellipse at 15% 20%,
+                    rgba(0, 179, 190, 0.13), transparent 38%),
+                radial-gradient(ellipse at 90% 85%,
+                    rgba(0, 103, 180, 0.16), transparent 38%),
+                var(--bg);
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 28px;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Background grid */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(35, 113, 143, 0.06) 1px,
+                    transparent 1px),
+                linear-gradient(90deg, rgba(35, 113, 143, 0.06) 1px,
+                    transparent 1px);
+            background-size: 42px 42px;
+            mask-image: linear-gradient(to bottom right, black, transparent 90%);
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 1080px;
+            min-height: 610px;
+            display: grid;
+            grid-template-columns: 1fr 0.92fr;
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            overflow: hidden;
+            background: rgba(4, 19, 34, 0.88);
+            box-shadow:
+                0 25px 90px rgba(0, 0, 0, 0.45),
+                0 0 40px rgba(18, 230, 208, 0.045);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* LEFT BRANDING PANEL */
+        .brand-panel {
+            position: relative;
+            padding: 45px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at 25% 70%,
+                    rgba(0, 203, 213, 0.13), transparent 48%),
+                linear-gradient(145deg, #071c30, #03101d);
+            border-right: 1px solid var(--border);
+        }
+
+        .brand-panel::before {
+            content: "";
+            position: absolute;
+            width: 360px;
+            height: 360px;
+            border: 1px solid rgba(18, 230, 208, 0.13);
+            border-radius: 50%;
+            bottom: -155px;
+            left: -110px;
+            box-shadow:
+                0 0 0 28px rgba(18, 230, 208, 0.025),
+                0 0 0 60px rgba(18, 230, 208, 0.025),
+                0 0 0 95px rgba(18, 230, 208, 0.02);
+        }
+
+        .brand-panel::after {
+            content: "";
+            position: absolute;
+            width: 240px;
+            height: 240px;
+            right: -130px;
+            top: 130px;
+            border: 1px solid rgba(18, 230, 208, 0.15);
+            border-radius: 50%;
+        }
+
+        .brand-content,
+        .brand-footer,
+        .brand-top {
+            position: relative;
+            z-index: 1;
+        }
+
+        .brand-top {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .mini-logo {
+            width: 42px;
+            height: 42px;
+            display: grid;
+            place-items: center;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--teal);
+            background: rgba(18, 230, 208, 0.06);
+        }
+
+        .mini-logo svg {
+            width: 25px;
+            height: 25px;
+        }
+
+        .brand-name {
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+        }
+
+        .brand-name span {
+            color: var(--teal);
+        }
+
+        .brand-content {
+            margin-top: 45px;
+            margin-bottom: 35px;
+        }
+
+        .main-shield {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 28px;
+            color: var(--teal);
+            filter: drop-shadow(0 0 18px rgba(18, 230, 208, 0.25));
+        }
+
+        .eyebrow {
+            color: var(--teal);
+            font-size: 11px;
+            letter-spacing: 3px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+        }
+
+        .brand-content h1 {
+            font-size: clamp(27px, 3vw, 39px);
+            line-height: 1.22;
+            letter-spacing: -1px;
+            margin-bottom: 19px;
+        }
+
+        .brand-content h1 span {
+            color: var(--teal);
+        }
+
+        .brand-description {
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.9;
+            max-width: 350px;
+        }
+
+        .feature-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 27px;
+        }
+
+        .feature {
+            border: 1px solid var(--border);
+            border-radius: 30px;
+            padding: 9px 12px;
+            font-size: 11px;
+            color: #c8e6ec;
+            background: rgba(18, 230, 208, 0.035);
+        }
+
+        .brand-footer {
+            padding-top: 18px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            color: #718ca2;
+            font-size: 11px;
+            line-height: 1.8;
+        }
+
+        /* RIGHT LOGIN PANEL */
+        .form-panel {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 55px clamp(28px, 5vw, 65px);
+            background: rgba(3, 14, 26, 0.65);
+        }
+
+        .secure-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--teal);
+            font-size: 11px;
+            letter-spacing: 1.5px;
+            font-weight: 700;
+            margin-bottom: 27px;
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--teal);
+            box-shadow: 0 0 10px var(--teal);
+        }
+
+        .form-panel h2 {
+            font-size: 30px;
+            letter-spacing: -0.7px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.7;
+            margin-bottom: 34px;
+        }
+
+        .field {
+            margin-bottom: 22px;
+        }
+
+        .field label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #d9e8f4;
+            margin-bottom: 10px;
+        }
+
+        .input-wrap {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #7895aa;
+            width: 19px;
+            height: 19px;
+            pointer-events: none;
+        }
+
+        .input-wrap input {
+            width: 100%;
+            height: 51px;
+            padding: 0 46px;
+            border: 1px solid #1b3a50;
+            border-radius: 10px;
+            outline: none;
+            color: var(--text);
+            font-size: 13px;
+            background: #071a2b;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .input-wrap input::placeholder {
+            color: #617b90;
+        }
+
+        .input-wrap input:focus {
+            border-color: var(--teal);
+            box-shadow: 0 0 0 3px rgba(18, 230, 208, 0.08);
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 13px;
+            top: 50%;
+            transform: translateY(-50%);
+            border: none;
+            background: none;
+            color: #88a3b8;
+            cursor: pointer;
+            font-size: 11px;
+            padding: 7px;
+        }
+
+        .toggle-password:hover {
+            color: var(--teal);
+        }
+
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin: 4px 0 27px;
+            font-size: 11px;
+        }
+
+        .remember {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--muted);
+            cursor: pointer;
+        }
+
+        .remember input {
+            accent-color: var(--teal);
+        }
+
+        .forgot-link {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .forgot-link:hover {
+            text-decoration: underline;
+        }
+
+        .login-btn {
+            width: 100%;
+            min-height: 51px;
+            border: 1px solid var(--teal);
+            border-radius: 10px;
+            background: linear-gradient(100deg, #0cc8bd, #16e5cc);
+            color: #03151c;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(18, 230, 208, 0.2);
+        }
+
+        .login-btn:active {
+            transform: translateY(0);
+        }
+
+        .error-message {
+            color: #ff9696;
+            background: rgba(255, 65, 85, 0.08);
+            border: 1px solid rgba(255, 65, 85, 0.25);
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 12px;
+            margin-bottom: 20px;
+        }
+
+        .success-message {
+            color: var(--teal);
+            font-size: 12px;
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin: 29px 0 22px;
+            color: #607c90;
+            font-size: 10px;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .security-note {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            color: #7792a6;
+            font-size: 11px;
+            line-height: 1.7;
+        }
+
+        .security-note svg {
+            flex-shrink: 0;
+            width: 17px;
+            height: 17px;
+            color: var(--teal);
+            margin-top: 1px;
+        }
+
+        .copyright {
+            text-align: center;
+            color: #526d82;
+            font-size: 10px;
+            margin-top: 35px;
+        }
+
+        @media (max-width: 760px) {
+            body {
+                padding: 15px;
+            }
+
+            .login-container {
+                max-width: 460px;
+                grid-template-columns: 1fr;
+                min-height: auto;
+            }
+
+            .brand-panel {
+                padding: 26px;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .brand-content {
+                margin: 32px 0 20px;
+            }
+
+            .main-shield {
+                width: 65px;
+                height: 65px;
+                margin-bottom: 17px;
+            }
+
+            .brand-content h1 {
+                font-size: 28px;
+            }
+
+            .brand-description,
+            .feature-list {
+                display: none;
+            }
+
+            .brand-footer {
+                margin-top: 10px;
+            }
+
+            .form-panel {
+                padding: 32px 26px;
+            }
+
+            .form-panel h2 {
+                font-size: 26px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                transition: none !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="login-container">
+
+        <!-- LEFT: PROJECT BRANDING -->
+        <section class="brand-panel">
+
+            <div class="brand-top">
+                <div class="mini-logo">
+                    <svg viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="1.8">
+                        <path d="M12 2 20 5v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3Z"/>
+                        <rect x="8.5" y="10" width="7" height="5" rx="1"/>
+                        <path d="M10 10V8a2 2 0 0 1 4 0v2"/>
+                    </svg>
+                </div>
+                <div class="brand-name">AI-<span>IDS</span></div>
+            </div>
+
+            <div class="brand-content">
+                <svg class="main-shield" viewBox="0 0 100 100"
+                     fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M50 7 84 20v25c0 23-14 38-34 48C30 83 16 68 16 45V20L50 7Z"/>
+                    <path d="M50 17 74 26v19c0 17-9 29-24 38C35 74 26 62 26 45V26l24-9Z"
+                          opacity=".35"/>
+                    <rect x="37" y="43" width="26" height="21" rx="4"/>
+                    <path d="M42 43v-7a8 8 0 0 1 16 0v7"/>
+                    <circle cx="50" cy="52" r="2"/>
+                    <path d="M50 54v4"/>
+                </svg>
+
+                <p class="eyebrow">Intelligent Network Security</p>
+
+                <h1>
+                    AI-Based<br>
+                    <span>Intrusion Detection</span><br>
+                    System
+                </h1>
+
+                <p class="brand-description">
+                    Detect suspicious network traffic, identify potential
+                    cyberattacks and support faster security response
+                    using machine learning.
+                </p>
+
+                <div class="feature-list">
+                    <span class="feature">AI-Powered Detection</span>
+                    <span class="feature">Traffic Analysis</span>
+                    <span class="feature">Threat Monitoring</span>
+                </div>
+            </div>
+
+            <footer class="brand-footer">
+                <div>AI-IDS · Academic Security Project</div>
+                <div>Machine Learning · Network Threat Detection</div>
+            </footer>
+
+        </section>
+
+        <!-- RIGHT: LOGIN FORM -->
+        <section class="form-panel">
+
+            <div class="secure-label">
+                <span class="status-dot"></span>
+                SECURE ACCESS PORTAL
+            </div>
+
+            <h2>Welcome back</h2>
+            <p class="subtitle">
+                Sign in to access your security monitoring dashboard.
+            </p>
+
+            <!-- Flask authentication form -->
+            <form action="/login" method="POST" id="loginForm">
+
+                <div class="field">
+                    <label for="username">Username</label>
+
+                    <div class="input-wrap">
+                        <svg class="input-icon" viewBox="0 0 24 24"
+                             fill="none" stroke="currentColor"
+                             stroke-width="1.7">
+                            <circle cx="12" cy="8" r="4"/>
+                            <path d="M4 21v-2a8 8 0 0 1 16 0v2"/>
+                        </svg>
+
+                        <input
+                            type="text"
+                            id="username"
+                            name="username"
+                            placeholder="Enter your username"
+                            autocomplete="username"
+                            required
+                            autofocus
+                        >
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="password">Password</label>
+
+                    <div class="input-wrap">
+                        <svg class="input-icon" viewBox="0 0 24 24"
+                             fill="none" stroke="currentColor"
+                             stroke-width="1.7">
+                            <rect x="4" y="10" width="16" height="11" rx="2"/>
+                            <path d="M8 10V7a4 4 0 0 1 8 0v3"/>
+                            <circle cx="12" cy="15" r="1"/>
+                            <path d="M12 16v2"/>
+                        </svg>
+
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            placeholder="Enter your password"
+                            autocomplete="current-password"
+                            required
+                        >
+
+                        <button
+                            type="button"
+                            class="toggle-password"
+                            id="togglePassword"
+                            aria-label="Show password"
+                            aria-pressed="false"
+                        >SHOW</button>
+                    </div>
+                </div>
+
+                <div class="form-options">
+                    <label class="remember">
+                        <input type="checkbox" name="remember">
+                        Remember me
+                    </label>
+
+                    <a href="/forgot-password" class="forgot-link">
+                        Forgot password?
+                    </a>
+                </div>
+
+                <!-- Flask can display authentication errors here -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="error-message" role="alert">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <button type="submit" class="login-btn">
+                    Sign In to Dashboard &nbsp; →
+                </button>
+
+            </form>
+
+            <div class="divider">PROTECTED APPLICATION</div>
+
+            <div class="security-note">
+                <svg viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="1.8">
+                    <path d="M12 2 20 5v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3Z"/>
+                    <path d="m9 12 2 2 4-4"/>
+                </svg>
+
+                <p>
+                    Authorized users only. Access to the dashboard
+                    requires valid credentials.
+                </p>
+            </div>
+
+            <div class="copyright">
+                © AI-IDS | Academic Project
+            </div>
+
+        </section>
+
+    </main>
+
+    <script>
+        // Show or hide the password
+        const passwordInput = document.getElementById("password");
+        const toggleButton = document.getElementById("togglePassword");
+
+        toggleButton.addEventListener("click", function () {
+            const showing = passwordInput.type === "password";
+
+            passwordInput.type = showing ? "text" : "password";
+            toggleButton.textContent = showing ? "HIDE" : "SHOW";
+            toggleButton.setAttribute("aria-pressed", String(showing));
+            toggleButton.setAttribute(
+                "aria-label",
+                showing ? "Hide password" : "Show password"
+            );
+        });
+    </script>
+</body>
+</html>

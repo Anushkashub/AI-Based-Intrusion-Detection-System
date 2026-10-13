@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+
+{% block title %}AI-IDS — Security Operations Dashboard{% endblock %}
+
+{% block content %}
+<!-- HEADER SECTION -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+        <h1 class="text-2xl font-bold tracking-tight text-white">Dashboard</h1>
+        <p class="text-xs text-slate-400 mt-0.5">Real-time network security overview and AI-powered intrusion detection</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <a href="{{ url_for('traffic_analysis_page') }}" class="btn-cyan px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 font-bold">
+            <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i>
+            <span>Upload Traffic CSV</span>
+        </a>
+    </div>
+</div>
+
+{% if dashboard_stats.has_analysis %}
+<!-- 4 KPI SUMMARY CARDS (REAL DATA) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+    <!-- Card 1: Total Traffic -->
+    <div class="soc-card p-5 flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-medium text-slate-400">Total Flows Analyzed</span>
+            <div class="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20">
+                <i data-lucide="network" class="w-4 h-4"></i>
+            </div>
+        </div>
+        <div>
+            <div class="text-2xl font-bold tracking-tight text-white font-mono">
+                {{ "{:,}".format(dashboard_stats.total_traffic) }}
+            </div>
+            <div class="text-[10px] text-slate-400 mt-1 flex items-center gap-1 font-mono">
+                <span class="text-cyan-400">78</span> features processed per flow
+            </div>
+        </div>
+    </div>
+
+    <!-- Card 2: Detected Threats -->
+    <div class="soc-card p-5 flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-medium text-slate-400">Detected Threats</span>
+            <div class="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-400 border border-rose-500/20">
+                <i data-lucide="shield-alert" class="w-4 h-4"></i>
+            </div>
+        </div>
+        <div>
+            <div class="text-2xl font-bold tracking-tight text-rose-400 font-mono">
+                {{ "{:,}".format(dashboard_stats.detected_threats) }}
+            </div>
+            <div class="text-[10px] text-slate-400 mt-1 font-mono">
+                <span class="text-rose-400 font-bold">{{ dashboard_stats.threat_percentage }}%</span> of analyzed traffic
+            </div>
+        </div>
+    </div>
+
+    <!-- Card 3: Benign Traffic -->
+    <div class="soc-card p-5 flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-medium text-slate-400">Benign Traffic</span>
+            <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
+                <i data-lucide="shield-check" class="w-4 h-4"></i>
+            </div>
+        </div>
+        <div>
+            <div class="text-2xl font-bold tracking-tight text-emerald-400 font-mono">
+                {{ "{:,}".format(dashboard_stats.benign_traffic) }}
+            </div>
+            <div class="text-[10px] text-slate-400 mt-1 font-mono">
+                <span class="text-emerald-400 font-bold">{{ dashboard_stats.benign_percentage }}%</span> normal network flows
+            </div>
+        </div>
+    </div>
+
+    <!-- Card 4: Model Status -->
+    <div class="soc-card p-5 flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-medium text-slate-400">Model Accuracy</span>
+            <div class="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
+                <i data-lucide="cpu" class="w-4 h-4"></i>
+            </div>
+        </div>
+        <div>
+            <div class="text-2xl font-bold tracking-tight text-white font-mono">{{ dashboard_stats.model_accuracy }}</div>
+            <div class="mt-2.5">
+                <span class="inline-block px-2.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                    Random Forest Classifier
+                </span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ANALYTICS CHARTS SECTION -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Flow Composition Ratio Chart -->
+    <div class="soc-card p-5 lg:col-span-2 flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h2 class="text-sm font-bold text-white tracking-wide">Network Traffic Composition</h2>
+                <p class="text-[11px] text-slate-400">Comparison of classified benign network flows versus detected malicious attacks</p>
+            </div>
+            <div class="flex items-center gap-4 text-xs font-mono">
+                <span class="flex items-center gap-1.5 text-slate-300">
+                    <span class="w-2 h-2 rounded-full bg-rose-500"></span> Malicious ({{ dashboard_stats.threat_percentage }}%)
+                </span>
+                <span class="flex items-center gap-1.5 text-slate-300">
+                    <span class="w-2 h-2 rounded-full bg-[#00d2ff]"></span> Benign ({{ dashboard_stats.benign_percentage }}%)
+                </span>
+            </div>
+        </div>
+        <div class="h-64 relative flex items-center justify-center">
+            <canvas id="ratioChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Attack Distribution Doughnut Chart -->
+    <div class="soc-card p-5 flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h2 class="text-sm font-bold text-white tracking-wide">Attack Class Distribution</h2>
+                <p class="text-[11px] text-slate-400">Breakdown of detected classes</p>
+            </div>
+        </div>
+        <div class="h-64 relative flex items-center justify-center">
+            <canvas id="distributionChart"></canvas>
+        </div>
+    </div>
+
+</div>
+
+<!-- RECENT ALERTS & SYSTEM STATUS -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Recent Alerts Table (Real Records) -->
+    <div class="soc-card p-5 lg:col-span-2 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <div>
+                <h2 class="text-sm font-bold text-white tracking-wide">Recent Threat Detections</h2>
+                <p class="text-[11px] text-slate-400">Latest classified attacks from analysis</p>
+            </div>
+            <a href="{{ url_for('threats_page') }}" class="text-xs text-[#00d2ff] hover:underline flex items-center gap-1 font-mono">
+                View All Threats <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="text-slate-400 border-b border-slate-800 font-mono text-[11px]">
+                        <th class="pb-2 font-semibold">Flow Ref</th>
+                        <th class="pb-2 font-semibold">Time</th>
+                        <th class="pb-2 font-semibold">Attack Classification</th>
+                        <th class="pb-2 font-semibold">Severity</th>
+                        <th class="pb-2 font-semibold text-right">Recommended Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60 font-mono text-[11px]">
+                    {% if recent_alerts and recent_alerts|length > 0 %}
+                        {% for alert in recent_alerts %}
+                        <tr class="hover:bg-[#0c182e] transition">
+                            <td class="py-2.5 text-cyan-400 font-bold">{{ alert.id }}</td>
+                            <td class="py-2.5 text-slate-400">{{ alert.timestamp }}</td>
+                            <td class="py-2.5 font-bold text-white font-sans">{{ alert.attack_type }}</td>
+                            <td class="py-2.5">
+                                {% if alert.severity == 'Critical' %}
+                                    <span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-bold">Critical</span>
+                                {% elif alert.severity == 'High' %}
+                                    <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold">High</span>
+                                {% elif alert.severity == 'Medium' %}
+                                    <span class="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 text-[10px] font-bold">Medium</span>
+                                {% else %}
+                                    <span class="px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30 text-[10px] font-bold">Low</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-2.5 text-right font-sans text-slate-300 text-[11px]">{{ alert.action }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="py-6 text-center text-slate-400 font-mono">
+                                No malicious threats detected in current results. All flows evaluated as Benign.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Engine & System Status -->
+    <div class="soc-card p-5 space-y-3.5">
+        <h2 class="text-sm font-bold text-white tracking-wide mb-2">Detection Pipeline Status</h2>
+        <div class="space-y-2.5 text-xs font-mono">
+            <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#050b17] border border-slate-800">
+                <span class="flex items-center gap-2 text-slate-300 font-sans"><i data-lucide="cpu" class="w-4 h-4 text-cyan-400"></i> ML Model</span>
+                <span class="text-emerald-400 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Online</span>
+            </div>
+            <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#050b17] border border-slate-800">
+                <span class="flex items-center gap-2 text-slate-300 font-sans"><i data-lucide="layers" class="w-4 h-4 text-cyan-400"></i> Feature Scaler</span>
+                <span class="text-emerald-400 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> 78 Features</span>
+            </div>
+            <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#050b17] border border-slate-800">
+                <span class="flex items-center gap-2 text-slate-300 font-sans"><i data-lucide="shield" class="w-4 h-4 text-cyan-400"></i> Attack Classes</span>
+                <span class="text-cyan-400 flex items-center gap-1.5">15 Multi-Class</span>
+            </div>
+            <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#050b17] border border-slate-800">
+                <span class="flex items-center gap-2 text-slate-300 font-sans"><i data-lucide="activity" class="w-4 h-4 text-cyan-400"></i> Analysis Results</span>
+                <span class="text-emerald-400 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Synced</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{% else %}
+<!-- HONEST EMPTY STATE: NO TRAFFIC ANALYSIS RUN YET -->
+<div class="soc-card p-12 text-center space-y-6 max-w-2xl mx-auto my-8">
+    <div class="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mx-auto">
+        <i data-lucide="network" class="w-8 h-8"></i>
+    </div>
+    <div class="space-y-2">
+        <h2 class="text-xl font-bold text-white tracking-wide">No Traffic Analysis Run Yet</h2>
+        <p class="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+            The AI intrusion detection system is online and ready. To generate live detection metrics, upload a network capture CSV file in Traffic Analysis.
+        </p>
+    </div>
+    <div>
+        <a href="{{ url_for('traffic_analysis_page') }}" class="btn-cyan px-5 py-2.5 rounded-lg text-xs font-bold inline-flex items-center gap-2">
+            <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+            <span>Upload Traffic Capture for AI Analysis</span>
+        </a>
+    </div>
+    <div class="pt-6 border-t border-slate-800/80 grid grid-cols-3 gap-4 text-left">
+        <div class="p-3 rounded-lg bg-[#050c18] border border-slate-800">
+            <span class="text-[10px] text-slate-500 block font-mono">MODEL ARCHITECTURE</span>
+            <span class="text-xs font-bold text-slate-200">Random Forest</span>
+        </div>
+        <div class="p-3 rounded-lg bg-[#050c18] border border-slate-800">
+            <span class="text-[10px] text-slate-500 block font-mono">INPUT FEATURES</span>
+            <span class="text-xs font-bold text-slate-200">78 Flow Metrics</span>
+        </div>
+        <div class="p-3 rounded-lg bg-[#050c18] border border-slate-800">
+            <span class="text-[10px] text-slate-500 block font-mono">BENCHMARK ACCURACY</span>
+            <span class="text-xs font-bold text-emerald-400">96.39% CIC-IDS2017</span>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{% if dashboard_stats.has_analysis %}
+<script>
+    // 1. Ratio Comparison Horizontal Bar Chart
+    const ctxRatio = document.getElementById('ratioChart').getContext('2d');
+    new Chart(ctxRatio, {
+        type: 'bar',
+        data: {
+            labels: ['Malicious', 'Benign'],
+            datasets: [{
+                label: 'Flow Count',
+                data: [{{ dashboard_stats.detected_threats }}, {{ dashboard_stats.benign_traffic }}],
+                backgroundColor: ['rgba(244, 63, 94, 0.85)', 'rgba(0, 210, 255, 0.85)'],
+                borderColor: ['#f43f5e', '#00d2ff'],
+                borderWidth: 1.5,
+                borderRadius: 6,
+                barThickness: 28
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.raw.toLocaleString() + ' flows (' +
+                                (context.dataIndex === 0 ? '{{ dashboard_stats.threat_percentage }}%' : '{{ dashboard_stats.benign_percentage }}%') + ')';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255, 255, 255, 0.04)' },
+                    ticks: {
+                        color: '#94a3b8',
+                        font: { size: 10, family: 'JetBrains Mono' },
+                        callback: function(value) {
+                            return value.toLocaleString();
+                        }
+                    }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: {
+                        color: '#f1f5f9',
+                        font: { size: 12, weight: '600' }
+                    }
+                }
+            }
+        }
+    });
+
+    // 2. Attack Distribution Doughnut Chart (Real Backend Data)
+    const chartLabels = {{ dashboard_chart_data.labels | tojson }};
+    const chartValues = {{ dashboard_chart_data.counts | tojson }};
+    const palette = ['#00e5ff', '#38bdf8', '#818cf8', '#fbbf24', '#f43f5e', '#a855f7', '#ec4899', '#10b981'];
+
+    const ctxDist = document.getElementById('distributionChart').getContext('2d');
+    new Chart(ctxDist, {
+        type: 'doughnut',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                data: chartValues,
+                backgroundColor: palette.slice(0, chartLabels.length),
+                borderColor: '#081122',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 10 }
+                }
+            },
+            cutout: '68%'
+        }
+    });
+</script>
+{% endif %}
+{% endblock %}

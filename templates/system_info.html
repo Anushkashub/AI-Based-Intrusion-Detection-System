@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}AI-IDS — System Information{% endblock %}
+
+{% block content %}
+<!-- HEADER SECTION -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+        <h1 class="text-2xl font-bold tracking-tight text-white">System Information</h1>
+        <p class="text-xs text-slate-400 mt-0.5">Software architecture, machine learning pipeline, and runtime environment specifications</p>
+    </div>
+    <div class="flex items-center gap-2">
+        <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono font-bold flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Engine Online
+        </span>
+    </div>
+</div>
+
+<!-- SYSTEM OVERVIEW 3 CARDS -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="soc-card p-5 space-y-2">
+        <div class="flex items-center justify-between">
+            <span class="text-xs font-medium text-slate-400">Application Framework</span>
+            <div class="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400">
+                <i data-lucide="layers" class="w-4 h-4"></i>
+            </div>
+        </div>
+        <div class="text-lg font-bold font-mono text-white">Flask 3.x WSGI</div>
+        <div class="text-[10px] text-slate-500 font-mono">Python Runtime & Jinja2 Templates</div>
+    </div>
+
+    <div class="soc-card p-5 space-y-2">
+        <div class="flex items-center justify-between">
+            <span class="text-xs font-medium text-slate-400">ML Engine</span>
+            <div class="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+                <i data-lucide="cpu" class="w-4 h-4"></i>
+            </div>
+        </div>
+        <div class="text-lg font-bold font-mono text-white">{{ model_name }}</div>
+        <div class="text-[10px] text-indigo-400 font-mono">{{ feature_count }} Features / {{ class_count }} Classes</div>
+    </div>
+
+    <div class="soc-card p-5 space-y-2">
+        <div class="flex items-center justify-between">
+            <span class="text-xs font-medium text-slate-400">Trained Dataset</span>
+            <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                <i data-lucide="database" class="w-4 h-4"></i>
+            </div>
+        </div>
+        <div class="text-lg font-bold font-mono text-white">CIC-IDS2017</div>
+        <div class="text-[10px] text-emerald-400 font-mono">Benchmark PCAP Flows</div>
+    </div>
+</div>
+
+<!-- DETAILED ARCHITECTURE SPECIFICATIONS -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- Left: ML & Processing Stack -->
+    <div class="soc-card p-6 space-y-4">
+        <div class="border-b border-[#14233c] pb-3">
+            <h2 class="text-sm font-bold text-white tracking-wide">Machine Learning Pipeline Stack</h2>
+            <p class="text-[11px] text-slate-400">Components powering flow classification and inference</p>
+        </div>
+
+        <div class="space-y-3 text-xs font-mono">
+            <div class="p-3 rounded-lg bg-[#050c18] border border-slate-800 flex justify-between items-center">
+                <span class="text-slate-400">Classification Algorithm</span>
+                <span class="text-white font-bold">RandomForestClassifier</span>
+            </div>
+            <div class="p-3 rounded-lg bg-[#050c18] border border-slate-800 flex justify-between items-center">
+                <span class="text-slate-400">Feature Scaling Model</span>
+                <span class="text-white font-bold">StandardScaler (z-score)</span>
+            </div>
+            <div class="p-3 rounded-lg bg-[#050c18] border border-slate-800 flex justify-between items-center">
+                <span class="text-slate-400">Input Feature Count</span>
+                <span class="text-cyan-400 font-bold">78 Flow Features</span>
+            </div>
+            <div class="p-3 rounded-lg bg-[#050c18] border border-slate-800 flex justify-between items-center">
+                <span class="text-slate-400">Target Attack Classes</span>
+                <span class="text-cyan-400 font-bold">15 Multi-Classes</span>
+            </div>
+            <div class="p-3 rounded-lg bg-[#050c18] border border-slate-800 flex justify-between items-center">
+                <span class="text-slate-400">Batch Processing Size</span>
+                <span class="text-white font-bold">10,000 Flows / Chunk</span>
+            </div>
+            <div class="p-3 rounded-lg bg-[#050c18] border border-slate-800 flex justify-between items-center">
+                <span class="text-slate-400">Model Packaging</span>
+                <span class="text-white font-bold">Pickle (Joblib) Container</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Web & Security Stack -->
+    <div class="soc-card p-6 space-y-4">
+        <div class="border-b border-[#14233c] pb-3">
+            <h2 class="text-sm font-bold text-white tracking-wide">Web & Security Architecture</h2>
+            <p class="text-[11px] text-slate-400">Application server, session management, and UI layer</p>
+        </div>
+
+        <div class="space-y-3 text-xs font-mono">
+            <div class="p-3 rounded-lg bg-[#050c18] border border-slate-800 flex justify-between items-center">
+                <span class="text-slate-400">Backend Web Server</span>
+                <span class="text-white font-bold">Flask Microframework</span>
+            </div>
+            <div class="p-3 rounded-lg bg-[#050c18] border border-slate-800 flex justify-between items-center">
+                <span class="text-slate-400">Frontend UI Engine</span>
+                <span class="text-white font-bold">Tailwind CSS + Lucide Icons</span>
+            </div>
+            <div class="p-3 rounded-lg bg-[#050c18] border border-slate-800 flex justify-between items-center">
+                <span class="text-slate-400">Data Visualization</span>
+                <span class="text-white font-bold">Chart.js 4.x</span>
+            </div>
+            <div class="p-3 rounded-lg bg-[#050c18] border border-slate-800 flex justify-between items-center">
+                <span class="text-slate-400">Authentication</span>
+                <span class="text-emerald-400 font-bold">Session Cookies (Protected)</span>
+            </div>
+            <div class="p-3 rounded-lg bg-[#050c18] border border-slate-800 flex justify-between items-center">
+                <span class="text-slate-400">Incident Persistence</span>
+                <span class="text-white font-bold">In-Memory Thread-Safe Store</span>
+            </div>
+            <div class="p-3 rounded-lg bg-[#050c18] border border-slate-800 flex justify-between items-center">
+                <span class="text-slate-400">CSV Export Endpoint</span>
+                <span class="text-emerald-400 font-bold">Safe File Serving (/download_results)</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

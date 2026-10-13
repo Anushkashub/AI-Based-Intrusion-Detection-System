@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}AI-IDS — Incident Management{% endblock %}
+
+{% block content %}
+<!-- HEADER SECTION -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+        <h1 class="text-2xl font-bold tracking-tight text-white">Incident Management</h1>
+        <p class="text-xs text-slate-400 mt-0.5">Track, investigate, and remediate cybersecurity incidents detected by the AI pipeline</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <a href="{{ url_for('threats_page') }}" class="px-3 py-1.5 rounded-lg bg-[#0c1c38] border border-[#00d2ff]/30 text-xs text-slate-300 hover:text-white font-mono transition">
+            <i data-lucide="shield-alert" class="w-3.5 h-3.5 inline mr-1 text-cyan-400"></i> View Detected Threats
+        </a>
+    </div>
+</div>
+
+<!-- 4 STAT SUMMARY CARDS (REAL DATA) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="soc-card p-5">
+        <span class="text-xs font-medium text-slate-400">Total Logged Incidents</span>
+        <div class="text-2xl font-bold font-mono text-white mt-1">{{ stats.total }}</div>
+        <div class="text-[10px] text-slate-500 font-mono mt-1">Recorded in memory</div>
+    </div>
+    <div class="soc-card p-5">
+        <span class="text-xs font-medium text-slate-400">Active / Investigating</span>
+        <div class="text-2xl font-bold font-mono text-amber-400 mt-1">{{ stats.active }}</div>
+        <div class="text-[10px] text-amber-400 font-mono mt-1">Requires Analyst Action</div>
+    </div>
+    <div class="soc-card p-5">
+        <span class="text-xs font-medium text-slate-400">Critical Severity</span>
+        <div class="text-2xl font-bold font-mono text-rose-400 mt-1">{{ stats.critical }}</div>
+        <div class="text-[10px] text-rose-400 font-mono mt-1">High-priority triage</div>
+    </div>
+    <div class="soc-card p-5">
+        <span class="text-xs font-medium text-slate-400">Resolved Incidents</span>
+        <div class="text-2xl font-bold font-mono text-emerald-400 mt-1">{{ stats.resolved }}</div>
+        <div class="text-[10px] text-emerald-400 font-mono mt-1">Remediated & closed</div>
+    </div>
+</div>
+
+<!-- INCIDENT WORKSPACE -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- Left: Incident Queue Table (9 Cols) -->
+    <div class="soc-card p-5 lg:col-span-9 space-y-4">
+        <div class="border-b border-[#14233c] pb-3 flex items-center justify-between">
+            <div>
+                <h2 class="text-sm font-bold text-white tracking-wide">Incident Queue</h2>
+                <p class="text-[11px] text-slate-400">Live security queue populated from classified threats</p>
+            </div>
+            <span class="text-xs font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-0.5 rounded-full">
+                {{ stats.total }} Total
+            </span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs" id="incidentTable">
+                <thead class="text-slate-400 border-b border-[#14233c] text-[11px] font-mono">
+                    <tr>
+                        <th class="py-2.5 px-3">Incident ID</th>
+                        <th class="py-2.5 px-3">Attack Classification</th>
+                        <th class="py-2.5 px-3">Severity</th>
+                        <th class="py-2.5 px-3">Status</th>
+                        <th class="py-2.5 px-3">Timestamp</th>
+                        <th class="py-2.5 px-3 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#14233c]/60 font-mono text-[11px]">
+                    {% if incidents and incidents|length > 0 %}
+                        {% for inc in incidents %}
+                        <tr class="hover:bg-white/[0.02] transition incident-row" data-severity="{{ inc.severity|lower }}" data-status="{{ inc.status|lower }}">
+                            <td class="py-3 px-3 text-cyan-400 font-bold">{{ inc.incident_id }}</td>
+                            <td class="py-3 px-3 text-white font-medium font-sans">{{ inc.attack_type }}</td>
+                            <td class="py-3 px-3">
+                                {% if inc.severity|lower == 'critical' %}
+                                    <span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-bold">Critical</span>
+                                {% elif inc.severity|lower == 'high' %}
+                                    <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold">High</span>
+                                {% elif inc.severity|lower == 'medium' %}
+                                    <span class="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 text-[10px] font-bold">Medium</span>
+                                {% else %}
+                                    <span class="px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30 text-[10px] font-bold">Low</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 px-3">
+                                {% if inc.status|lower == 'resolved' %}
+                                    <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">Resolved</span>
+                                {% elif inc.status|lower == 'investigating' %}
+                                    <span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 text-[10px] font-bold">Investigating</span>
+                                {% else %}
+                                    <span class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 text-[10px] font-bold">Active</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 px-3 text-slate-400">{{ inc.timestamp }}</td>
+                            <td class="py-3 px-3 text-right">
+                                <a href="{{ url_for('incident_details_page', incident_id=inc.incident_id) }}" class="px-2.5 py-1 rounded bg-[#0c1c38] hover:bg-[#00d2ff] hover:text-[#040814] text-[#00d2ff] border border-[#00d2ff]/30 text-[10px] font-bold transition font-sans">
+                                    Triage
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="6" class="py-12 text-center text-slate-400 font-mono space-y-2">
+                                <i data-lucide="shield-check" class="w-8 h-8 mx-auto text-emerald-400 opacity-80 mb-2"></i>
+                                <p class="text-slate-300 font-bold">No Security Incidents Currently Logged</p>
+                                <p class="text-xs text-slate-500 max-w-sm mx-auto">
+                                    Incidents are automatically logged when malicious threats are classified during network traffic analysis.
+                                </p>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Right: Filter & Search Widget (3 Cols) -->
+    <div class="soc-card p-5 lg:col-span-3 space-y-5">
+        <div class="border-b border-[#14233c] pb-3">
+            <span class="text-xs font-bold text-white tracking-wide">Queue Filters</span>
+        </div>
+
+        <!-- Severity Filter -->
+        <div class="space-y-2">
+            <label class="text-[11px] font-mono text-slate-400 block uppercase">Filter by Severity</label>
+            <div class="space-y-1.5 text-xs font-mono">
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+                    <input type="checkbox" checked onchange="filterIncidents()" data-filter-sev="critical" class="rounded border-[#14233c] bg-[#040814] text-[#00d2ff]">
+                    <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-rose-500"></span> Critical</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+                    <input type="checkbox" checked onchange="filterIncidents()" data-filter-sev="high" class="rounded border-[#14233c] bg-[#040814] text-[#00d2ff]">
+                    <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span> High</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+                    <input type="checkbox" checked onchange="filterIncidents()" data-filter-sev="medium" class="rounded border-[#14233c] bg-[#040814] text-[#00d2ff]">
+                    <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-yellow-500"></span> Medium</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+                    <input type="checkbox" checked onchange="filterIncidents()" data-filter-sev="low" class="rounded border-[#14233c] bg-[#040814] text-[#00d2ff]">
+                    <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-sky-500"></span> Low</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Status Filter -->
+        <div class="space-y-2 pt-2 border-t border-[#14233c]">
+            <label class="text-[11px] font-mono text-slate-400 block uppercase">Filter by Status</label>
+            <div class="space-y-1.5 text-xs font-mono">
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+                    <input type="checkbox" checked onchange="filterIncidents()" data-filter-stat="active" class="rounded border-[#14233c] bg-[#040814] text-[#00d2ff]">
+                    <span>Active</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+                    <input type="checkbox" checked onchange="filterIncidents()" data-filter-stat="investigating" class="rounded border-[#14233c] bg-[#040814] text-[#00d2ff]">
+                    <span>Investigating</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+                    <input type="checkbox" checked onchange="filterIncidents()" data-filter-stat="resolved" class="rounded border-[#14233c] bg-[#040814] text-[#00d2ff]">
+                    <span>Resolved</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- API Link -->
+        <div class="pt-3 border-t border-[#14233c]">
+            <a href="{{ url_for('get_incidents_api') }}" target="_blank" class="w-full py-2 rounded-lg bg-[#0c182c] border border-[#1b3154] hover:border-[#00d2ff] text-slate-300 text-xs font-mono flex items-center justify-center gap-1.5 transition">
+                <i data-lucide="code" class="w-3.5 h-3.5"></i>
+                <span>Open Incidents JSON API</span>
+            </a>
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function filterIncidents() {
+        const sevCheckboxes = document.querySelectorAll('[data-filter-sev]');
+        const statCheckboxes = document.querySelectorAll('[data-filter-stat]');
+
+        const activeSevs = Array.from(sevCheckboxes).filter(c => c.checked).map(c => c.dataset.filterSev);
+        const activeStats = Array.from(statCheckboxes).filter(c => c.checked).map(c => c.dataset.filterStat);
+
+        const rows = document.querySelectorAll('.incident-row');
+        rows.forEach(row => {
+            const sev = row.dataset.severity;
+            const stat = row.dataset.status;
+
+            const matchesSev = activeSevs.includes(sev);
+            const matchesStat = activeStats.includes(stat);
+
+            if (matchesSev && matchesStat) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+</script>
+{% endblock %}

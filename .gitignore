@@ -1,0 +1,80 @@
+# ============================================================
+# AI-BASED INTRUSION DETECTION SYSTEM (.gitignore)
+# ============================================================
+
+# --- Python & Bytecode ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# --- Virtual Environments ---
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# --- Environment Secrets & Credentials ---
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.cert
+
+# --- Large Raw Datasets (Do NOT commit multi-GB datasets) ---
+MachineLearningCSV/
+MachineLearningCVE/
+*.pcap
+*.pcap_ISCX.csv
+
+# --- Large Preprocessed Training/Evaluation Arrays (>100MB) ---
+X_train_scaled.npy
+X_test_scaled.npy
+y_train.npy
+y_test.npy
+
+# --- Redundant Model Dumps (model is packaged in ids_model_package.pkl) ---
+random_forest_model.pkl
+
+# --- Runtime Uploads & Test Outputs ---
+uploads/*
+!uploads/.gitkeep
+results/dashboard_analysis_results.csv
+*.log
+
+# --- IDEs & Editors ---
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.project
+.pydevproject
+
+# --- Jupyter Notebook Checkpoints ---
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# --- OS Generated Files ---
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini

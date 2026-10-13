@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}AI-IDS — Threat Detection Results{% endblock %}
+
+{% block content %}
+<!-- HEADER SECTION -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+        <h1 class="text-2xl font-bold tracking-tight text-white">Threat Detection Results</h1>
+        <p class="text-xs text-slate-400 mt-0.5">Classified attack flows and AI prediction results from analyzed network captures</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <a href="{{ url_for('traffic_analysis_page') }}" class="px-3 py-1.5 rounded-lg bg-[#0c1c38] border border-[#00d2ff]/30 text-xs text-slate-300 hover:text-white font-mono transition">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5 inline mr-1"></i> New Capture
+        </a>
+        <a href="{{ url_for('download_results') }}" class="btn-cyan px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 font-bold">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Export Results CSV</span>
+        </a>
+    </div>
+</div>
+
+{% if summary.has_analysis %}
+<!-- SUMMARY CARDS (REAL DATA) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="soc-card p-5">
+        <div class="text-xs font-medium text-slate-400">Total Analyzed Flows</div>
+        <div class="text-2xl font-bold font-mono text-white mt-1">{{ "{:,}".format(summary.total_records) }}</div>
+        <div class="text-[10px] text-slate-500 font-mono mt-1">Full dataset batch</div>
+    </div>
+    <div class="soc-card p-5">
+        <div class="text-xs font-medium text-slate-400">Malicious Threats</div>
+        <div class="text-2xl font-bold font-mono text-rose-400 mt-1">{{ "{:,}".format(summary.attack_total) }}</div>
+        <div class="text-[10px] text-rose-400 font-mono mt-1">{{ summary.attack_percentage }}% threat rate</div>
+    </div>
+    <div class="soc-card p-5">
+        <div class="text-xs font-medium text-slate-400">Benign Flows</div>
+        <div class="text-2xl font-bold font-mono text-emerald-400 mt-1">{{ "{:,}".format(summary.benign_count) }}</div>
+        <div class="text-[10px] text-emerald-400 font-mono mt-1">{{ summary.benign_percentage }}% normal traffic</div>
+    </div>
+    <div class="soc-card p-5">
+        <div class="text-xs font-medium text-slate-400">Attack Classes Detected</div>
+        <div class="text-2xl font-bold font-mono text-cyan-400 mt-1">{{ summary.attack_classes }}</div>
+        <div class="text-[10px] text-cyan-400 font-mono mt-1">Multi-class inference</div>
+    </div>
+</div>
+
+<!-- ATTACK BREAKDOWN CARDS -->
+{% if attacks and attacks|length > 0 %}
+<div class="soc-card p-5 space-y-4">
+    <div class="border-b border-[#14233c] pb-3 flex items-center justify-between">
+        <div>
+            <h2 class="text-sm font-bold text-white tracking-wide">Detected Attack Categories</h2>
+            <p class="text-[11px] text-slate-400">Summary breakdown by classified attack category</p>
+        </div>
+        <span class="text-xs font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-0.5 rounded-full">
+            {{ attacks|length }} Attack Type(s) Identified
+        </span>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {% for att in attacks %}
+        <div class="p-4 rounded-xl bg-[#050c18] border border-[#14233c] space-y-2">
+            <div class="flex items-center justify-between">
+                <span class="text-sm font-bold text-white">{{ att.attack_type }}</span>
+                {% if att.risk_level == 'Critical' %}
+                    <span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-bold">Critical</span>
+                {% elif att.risk_level == 'High' %}
+                    <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold">High</span>
+                {% elif att.risk_level == 'Medium' %}
+                    <span class="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 text-[10px] font-bold">Medium</span>
+                {% else %}
+                    <span class="px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30 text-[10px] font-bold">Low</span>
+                {% endif %}
+            </div>
+            <div class="flex items-baseline justify-between font-mono">
+                <span class="text-xl font-bold text-white">{{ "{:,}".format(att.count) }}</span>
+                <span class="text-xs text-slate-400">{{ att.percentage }}% of total</span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-sans border-t border-slate-800/80 pt-2">
+                <strong class="text-slate-300">Action:</strong> {{ att.recommended_action }}
+            </p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- REAL THREAT FLOW RECORDS TABLE -->
+<div class="soc-card p-5 space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+        <div>
+            <h2 class="text-sm font-bold text-white tracking-wide">Classified Threat Flows</h2>
+            <p class="text-[11px] text-slate-400">Actual records from inference results (<code>results/dashboard_analysis_results.csv</code>)</p>
+        </div>
+        <span class="text-xs font-mono text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-0.5 rounded-full">
+            {{ "{:,}".format(summary.attack_total) }} Total Threats Found
+        </span>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+            <thead>
+                <tr class="text-slate-400 border-b border-slate-800 font-mono text-[11px] uppercase">
+                    <th class="pb-3 font-semibold">Record #</th>
+                    <th class="pb-3 font-semibold">Class ID</th>
+                    <th class="pb-3 font-semibold">Predicted Attack</th>
+                    <th class="pb-3 font-semibold">Severity</th>
+                    <th class="pb-3 font-semibold">Recommended Response</th>
+                    <th class="pb-3 font-semibold text-right">Inference Timestamp</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/60 font-mono text-[11px]">
+                {% if threat_records and threat_records|length > 0 %}
+                    {% for row in threat_records %}
+                    <tr class="hover:bg-[#0c182e] transition">
+                        <td class="py-3 text-cyan-400 font-bold">#REC-{{ row.record }}</td>
+                        <td class="py-3 text-slate-400">{{ row.class_id }}</td>
+                        <td class="py-3 font-bold text-white font-sans text-xs">{{ row.attack_type }}</td>
+                        <td class="py-3">
+                            {% if row.risk_level == 'Critical' %}
+                                <span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] uppercase font-bold">Critical</span>
+                            {% elif row.risk_level == 'High' %}
+                                <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] uppercase font-bold">High</span>
+                            {% elif row.risk_level == 'Medium' %}
+                                <span class="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 text-[10px] uppercase font-bold">Medium</span>
+                            {% else %}
+                                <span class="px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30 text-[10px] uppercase font-bold">Low</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 font-sans text-slate-300">{{ row.recommended_action }}</td>
+                        <td class="py-3 text-right text-slate-400">{{ row.timestamp }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="6" class="py-8 text-center text-slate-400 font-mono">
+                            Zero malicious threats detected in this traffic analysis. All flows classified as BENIGN.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% else %}
+<!-- HONEST EMPTY STATE -->
+<div class="soc-card p-12 text-center space-y-6 max-w-2xl mx-auto my-8">
+    <div class="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mx-auto">
+        <i data-lucide="shield-alert" class="w-8 h-8"></i>
+    </div>
+    <div class="space-y-2">
+        <h2 class="text-xl font-bold text-white tracking-wide">No Threat Detection Results Available</h2>
+        <p class="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+            Run an analysis on a network traffic CSV capture to view classified attack flows, risk severity assessments, and recommended response procedures.
+        </p>
+    </div>
+    <div>
+        <a href="{{ url_for('traffic_analysis_page') }}" class="btn-cyan px-5 py-2.5 rounded-lg text-xs font-bold inline-flex items-center gap-2">
+            <i data-lucide="network" class="w-4 h-4"></i>
+            <span>Go to Traffic Analysis</span>
+        </a>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

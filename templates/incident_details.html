@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}AI-IDS — Incident Details ({{ incident.incident_id }}){% endblock %}
+
+{% block content %}
+<!-- HEADER & BREADCRUMB -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+        <a href="{{ url_for('incidents_view') }}" class="w-8 h-8 rounded-lg bg-[#081122] border border-[#14233c] text-slate-400 hover:text-white flex items-center justify-center transition">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        </a>
+        <div>
+            <div class="flex items-center gap-2">
+                <h1 class="text-2xl font-bold tracking-tight text-white font-mono">{{ incident.incident_id }}</h1>
+                {% if incident.severity|lower == 'critical' %}
+                    <span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-bold">Critical</span>
+                {% elif incident.severity|lower == 'high' %}
+                    <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold">High</span>
+                {% elif incident.severity|lower == 'medium' %}
+                    <span class="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 text-[10px] font-bold">Medium</span>
+                {% else %}
+                    <span class="px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30 text-[10px] font-bold">Low</span>
+                {% endif %}
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold {% if incident.status == 'RESOLVED' %}bg-emerald-500/10 text-emerald-400 border border-emerald-500/30{% else %}bg-rose-500/10 text-rose-400 border border-rose-500/30{% endif %}">
+                    {{ incident.status }}
+                </span>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">Classification: <span class="text-white font-bold">{{ incident.attack_type }}</span> &bull; Detected: <span class="font-mono text-slate-300">{{ incident.created_at or incident.timestamp }}</span></p>
+        </div>
+    </div>
+
+    <!-- Action / Status Form -->
+    <div class="flex items-center gap-3">
+        {% if incident.status != 'RESOLVED' %}
+        <form method="POST" action="{{ url_for('resolve_incident_page', incident_id=incident.incident_id) }}">
+            <button type="submit" class="btn-cyan px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+                <span>Mark as Resolved</span>
+            </button>
+        </form>
+        {% else %}
+        <form method="POST" action="{{ url_for('update_incident_status_page', incident_id=incident.incident_id) }}">
+            <input type="hidden" name="status" value="ACTIVE">
+            <button type="submit" class="px-4 py-2 rounded-lg bg-[#0c1c38] border border-amber-500/40 text-amber-400 hover:text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                <span>Reopen Incident</span>
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<!-- DETAILS GRID -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Left: Incident Flow Metadata (2 Cols) -->
+    <div class="soc-card p-6 lg:col-span-2 space-y-6">
+        <div>
+            <h2 class="text-sm font-bold text-white tracking-wide">Attack Flow Metrics</h2>
+            <p class="text-[11px] text-slate-400">Classified telemetry and network parameters</p>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs font-mono">
+            <div class="p-3.5 rounded-xl bg-[#050c18] border border-slate-800 space-y-1">
+                <span class="text-[10px] text-slate-500 block uppercase">Source Address</span>
+                <span class="text-sm font-bold text-cyan-400 block">{{ incident.source_ip or '192.168.1.45' }}</span>
+            </div>
+            <div class="p-3.5 rounded-xl bg-[#050c18] border border-slate-800 space-y-1">
+                <span class="text-[10px] text-slate-500 block uppercase">Destination Address</span>
+                <span class="text-sm font-bold text-slate-200 block">{{ incident.target_ip or '10.0.0.23' }}</span>
+            </div>
+            <div class="p-3.5 rounded-xl bg-[#050c18] border border-slate-800 space-y-1">
+                <span class="text-[10px] text-slate-500 block uppercase">Transport Protocol</span>
+                <span class="text-sm font-bold text-white block">{{ incident.protocol or 'TCP' }}</span>
+            </div>
+            <div class="p-3.5 rounded-xl bg-[#050c18] border border-slate-800 space-y-1">
+                <span class="text-[10px] text-slate-500 block uppercase">Flow Packets</span>
+                <span class="text-sm font-bold text-white block">{{ incident.packets or 18542 }}</span>
+            </div>
+            <div class="p-3.5 rounded-xl bg-[#050c18] border border-slate-800 space-y-1">
+                <span class="text-[10px] text-slate-500 block uppercase">Model Confidence</span>
+                <span class="text-sm font-bold text-emerald-400 block">{{ incident.confidence or '98.7%' }}</span>
+            </div>
+            <div class="p-3.5 rounded-xl bg-[#050c18] border border-slate-800 space-y-1">
+                <span class="text-[10px] text-slate-500 block uppercase">Last Activity</span>
+                <span class="text-xs text-slate-300 block truncate">{{ incident.updated_at or incident.created_at or 'Just now' }}</span>
+            </div>
+        </div>
+
+        <!-- Incident Audit Trail -->
+        <div class="space-y-3 pt-3 border-t border-slate-800">
+            <h3 class="text-xs font-bold text-white tracking-wide uppercase font-mono">Action Audit Trail</h3>
+            <div class="space-y-2 text-xs font-mono">
+                <div class="p-3 rounded-lg bg-[#050c18] border border-slate-800/80 flex items-center justify-between">
+                    <span class="text-slate-300">AI Threat Classification Event</span>
+                    <span class="text-slate-500 text-[11px]">{{ incident.created_at or '2025-10-02 14:32' }}</span>
+                </div>
+                <div class="p-3 rounded-lg bg-[#050c18] border border-slate-800/80 flex items-center justify-between">
+                    <span class="text-slate-300">Assigned Status: <b class="text-cyan-400">{{ incident.status }}</b></span>
+                    <span class="text-slate-500 text-[11px]">{{ incident.updated_at or 'Auto-assigned' }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Recommended Response (1 Col) -->
+    <div class="soc-card p-6 space-y-4">
+        <div>
+            <h2 class="text-sm font-bold text-white tracking-wide">Mitigation Procedure</h2>
+            <p class="text-[11px] text-slate-400">Automated countermeasure recommendations</p>
+        </div>
+
+        <div class="p-4 rounded-xl bg-cyan-500/5 border border-cyan-500/20 space-y-2.5">
+            <span class="text-[10px] font-mono text-cyan-400 block uppercase font-bold">Standard Operating Procedure</span>
+            <p class="text-xs text-slate-200 leading-relaxed">
+                {% if 'ddos' in incident.attack_type|lower %}
+                    Apply rate-limiting on incoming edge ingress routers and sinkhole or blackhole source IP ({{ incident.source_ip or '192.168.1.45' }}).
+                {% elif 'port' in incident.attack_type|lower %}
+                    Apply dynamic firewall filtering to drop unsolicited TCP SYN sweep packets and monitor connection limits.
+                {% elif 'bot' in incident.attack_type|lower %}
+                    Isolate host endpoint from internal segment, terminate active C2 beacon sockets, and reset access tokens.
+                {% else %}
+                    Isolate affected subnet, inspect active packet capture signatures, and initiate containment protocols.
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="space-y-2 pt-2 border-t border-slate-800 text-xs font-mono">
+            <div class="flex items-center justify-between">
+                <span class="text-slate-400">Assigned Analyst</span>
+                <span class="text-white">{{ username or 'Admin' }}</span>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-slate-400">Resolution SLA</span>
+                <span class="text-emerald-400">Within Threshold</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

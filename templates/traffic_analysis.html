@@ -1,0 +1,413 @@
+{% extends "base.html" %}
+
+{% block title %}AI-IDS — Traffic Analysis{% endblock %}
+
+{% block content %}
+<!-- HEADER SECTION -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+        <h1 class="text-2xl font-bold tracking-tight text-white">Traffic Analysis</h1>
+        <p class="text-xs text-slate-400 mt-0.5">Upload network flow captures (CSV) for real-time AI intrusion detection inference</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <a href="{{ url_for('threats_page') }}" class="px-3 py-1.5 rounded-lg bg-[#0c1c38] border border-[#00d2ff]/30 text-xs text-slate-300 hover:text-white font-mono transition">
+            <i data-lucide="shield-alert" class="w-3.5 h-3.5 inline mr-1 text-cyan-400"></i> View Threat Results
+        </a>
+    </div>
+</div>
+
+<!-- INLINE NOTIFICATION / ERROR ALERT BANNER -->
+<div id="analysisAlert" class="hidden p-4 rounded-xl border text-xs flex items-start gap-3 transition-all duration-300">
+    <i id="analysisAlertIcon" data-lucide="alert-circle" class="w-4 h-4 shrink-0 mt-0.5"></i>
+    <div class="flex-1">
+        <p id="analysisAlertTitle" class="font-bold"></p>
+        <p id="analysisAlertMessage" class="mt-0.5 text-[11px]"></p>
+    </div>
+    <button onclick="dismissAlert()" class="text-slate-400 hover:text-white">&times;</button>
+</div>
+
+<!-- MAIN ANALYSIS WORKSPACE -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- LEFT: Upload & Controls (2 Cols) -->
+    <div class="soc-card p-6 lg:col-span-2 space-y-6">
+
+        <div>
+            <h2 class="text-sm font-bold text-white tracking-wide">Network Capture File Upload</h2>
+            <p class="text-[11px] text-slate-400 mt-0.5">
+                Upload a network traffic flow CSV containing the 78 standard CIC-IDS2017 features.
+            </p>
+        </div>
+
+        <!-- DRAG & DROP ZONE -->
+        <div id="dropZone" class="border-2 border-dashed border-[#1e355b] hover:border-[#00d2ff]/60 rounded-xl p-8 text-center bg-[#050c18]/60 transition-all cursor-pointer relative group">
+            <input type="file" id="trafficFileInput" accept=".csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+            <div class="space-y-3 pointer-events-none">
+                <div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mx-auto group-hover:scale-105 transition">
+                    <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-bold text-slate-200">
+                        Drop your CSV file here, or <span class="text-[#00d2ff] underline">browse</span>
+                    </p>
+                    <p class="text-[11px] text-slate-400 font-mono mt-1">Supports CIC-IDS2017 format (.csv)</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SELECTED FILE DETAILS BAR -->
+        <div id="selectedFileInfo" class="hidden p-3.5 rounded-xl bg-[#050c18] border border-[#14233c] flex items-center justify-between text-xs font-mono">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                </div>
+                <div>
+                    <span id="displayFileName" class="font-bold text-white block">sample.csv</span>
+                    <span id="displayFileSize" class="text-[10px] text-slate-400 block">0 KB</span>
+                </div>
+            </div>
+            <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">Ready</span>
+        </div>
+
+        <!-- RUN ANALYSIS BUTTON -->
+        <div class="pt-2">
+            <button id="runAnalysisBtn" onclick="runAnalysis()" class="btn-cyan w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                <i data-lucide="play" class="w-4 h-4"></i>
+                <span id="btnText">Run AI Intrusion Detection Analysis</span>
+            </button>
+        </div>
+
+        <!-- PIPELINE STATUS & PROGRESS BAR -->
+        <div class="space-y-2 pt-2 border-t border-slate-800/80">
+            <div class="flex items-center justify-between text-xs font-mono">
+                <span class="text-slate-400 flex items-center gap-2">
+                    <span id="pipelineStatusDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+                    <span id="pipelineStatusText">Pipeline Idle — Ready for upload</span>
+                </span>
+                <span id="pipelineStatusBadge" class="text-cyan-400 font-bold">0%</span>
+            </div>
+            <div class="w-full h-2 rounded-full bg-[#050c18] overflow-hidden border border-slate-800">
+                <div id="analysisProgressBar" class="h-full bg-[#00d2ff] rounded-full transition-all duration-300 w-0 shadow-[0_0_12px_rgba(0,210,255,0.6)]"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- RIGHT: Pipeline Steps & Insights (1 Col) -->
+    <div class="space-y-6">
+
+        <!-- 4-STEP PIPELINE PROGRESSION -->
+        <div class="soc-card p-5 space-y-4">
+            <h2 class="text-xs font-bold text-white tracking-wide uppercase font-mono">Analysis Execution Flow</h2>
+
+            <div class="space-y-3.5 text-xs font-mono">
+                <!-- Step 1 -->
+                <div id="stepItem1" class="flex items-start gap-3 p-2.5 rounded-lg bg-[#050c18] border border-slate-800/80 transition">
+                    <div id="stepBadge1" class="w-6 h-6 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">1</div>
+                    <div>
+                        <div class="font-bold text-slate-300" id="stepTitle1">Step 1: Select CSV Capture</div>
+                        <div class="text-[10px] text-slate-500" id="stepDesc1">Awaiting file upload</div>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div id="stepItem2" class="flex items-start gap-3 p-2.5 rounded-lg bg-[#050c18] border border-slate-800/80 transition">
+                    <div id="stepBadge2" class="w-6 h-6 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">2</div>
+                    <div>
+                        <div class="font-bold text-slate-300" id="stepTitle2">Step 2: Validate Data</div>
+                        <div class="text-[10px] text-slate-500" id="stepDesc2">Verifying 78 model features</div>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div id="stepItem3" class="flex items-start gap-3 p-2.5 rounded-lg bg-[#050c18] border border-slate-800/80 transition">
+                    <div id="stepBadge3" class="w-6 h-6 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">3</div>
+                    <div>
+                        <div class="font-bold text-slate-300" id="stepTitle3">Step 3: AI Inference</div>
+                        <div class="text-[10px] text-slate-500" id="stepDesc3">Random Forest classification</div>
+                    </div>
+                </div>
+
+                <!-- Step 4 -->
+                <div id="stepItem4" class="flex items-start gap-3 p-2.5 rounded-lg bg-[#050c18] border border-slate-800/80 transition">
+                    <div id="stepBadge4" class="w-6 h-6 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">4</div>
+                    <div>
+                        <div class="font-bold text-slate-300" id="stepTitle4">Step 4: Real Results</div>
+                        <div class="text-[10px] text-slate-500" id="stepDesc4">Metrics & incident feed</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- REAL DATASET INSIGHTS (Populated dynamically) -->
+        <div class="soc-card p-5 space-y-3.5">
+            <h2 class="text-xs font-bold text-white tracking-wide uppercase font-mono">Dataset Insights</h2>
+
+            <div class="space-y-2 text-xs font-mono">
+                <div class="flex items-center justify-between p-2 rounded-lg bg-[#050c18] border border-slate-800/80">
+                    <span class="text-slate-400">Total Records</span>
+                    <span id="insightTotalRecords" class="text-white font-bold">—</span>
+                </div>
+                <div class="flex items-center justify-between p-2 rounded-lg bg-[#050c18] border border-slate-800/80">
+                    <span class="text-slate-400">Features Used</span>
+                    <span id="insightFeatures" class="text-cyan-400 font-bold">78 Features</span>
+                </div>
+                <div class="flex items-center justify-between p-2 rounded-lg bg-[#050c18] border border-slate-800/80">
+                    <span class="text-slate-400">Attack Classes</span>
+                    <span id="insightClasses" class="text-white font-bold">—</span>
+                </div>
+                <div class="flex items-center justify-between p-2 rounded-lg bg-[#050c18] border border-slate-800/80">
+                    <span class="text-slate-400">Benign Records</span>
+                    <span id="insightBenignRecords" class="text-emerald-400 font-bold">—</span>
+                </div>
+            </div>
+
+            <!-- SUCCESS ACTION BUTTONS (Revealed when complete) -->
+            <div id="analysisCompleteActions" class="hidden space-y-2 pt-2">
+                <a href="{{ url_for('threats_page') }}" class="btn-cyan w-full py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5">
+                    <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>
+                    <span>View Threat Results</span>
+                </a>
+                <div class="grid grid-cols-2 gap-2">
+                    <a href="{{ url_for('dashboard') }}" class="py-2 rounded-lg bg-[#0c1c38] border border-[#00d2ff]/30 text-xs text-center text-slate-300 hover:text-white font-bold transition">
+                        Dashboard
+                    </a>
+                    <a href="{{ url_for('download_results') }}" class="py-2 rounded-lg bg-[#0c1c38] border border-[#00d2ff]/30 text-xs text-center text-slate-300 hover:text-white font-bold transition">
+                        Export CSV
+                    </a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let selectedFile = null;
+    let pollInterval = null;
+
+    // File Input & Drag & Drop Handling
+    const fileInput = document.getElementById('trafficFileInput');
+    const dropZone = document.getElementById('dropZone');
+    const selectedFileInfo = document.getElementById('selectedFileInfo');
+    const displayFileName = document.getElementById('displayFileName');
+    const displayFileSize = document.getElementById('displayFileSize');
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+            handleFileSelection(e.target.files[0]);
+        }
+    });
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-[#00d2ff]', 'bg-[#00d2ff]/5');
+    });
+
+    dropZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-[#00d2ff]', 'bg-[#00d2ff]/5');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-[#00d2ff]', 'bg-[#00d2ff]/5');
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            handleFileSelection(e.dataTransfer.files[0]);
+        }
+    });
+
+    function handleFileSelection(file) {
+        if (!file.name.toLowerCase().endsWith('.csv')) {
+            showAlert('error', 'Invalid File Type', 'Please upload a CSV file (.csv) containing network flow metrics.');
+            return;
+        }
+
+        selectedFile = file;
+        displayFileName.textContent = file.name;
+        displayFileSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
+        selectedFileInfo.classList.remove('hidden');
+
+        // Update Step 1 indicator
+        setStepState(1, 'completed', 'Step 1: CSV Selected', file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)');
+        setStepState(2, 'active', 'Step 2: Validate Data', 'Ready to verify features');
+        dismissAlert();
+    }
+
+    function setStepState(stepNum, state, title, desc) {
+        const item = document.getElementById(`stepItem${stepNum}`);
+        const badge = document.getElementById(`stepBadge${stepNum}`);
+        const titleEl = document.getElementById(`stepTitle${stepNum}`);
+        const descEl = document.getElementById(`stepDesc${stepNum}`);
+
+        if (title) titleEl.textContent = title;
+        if (desc) descEl.textContent = desc;
+
+        if (state === 'completed') {
+            item.className = 'flex items-start gap-3 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30';
+            badge.className = 'w-6 h-6 rounded-full bg-emerald-500 text-black flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5';
+            badge.innerHTML = '✓';
+        } else if (state === 'active') {
+            item.className = 'flex items-start gap-3 p-2.5 rounded-lg bg-cyan-500/10 border border-cyan-500/40';
+            badge.className = 'w-6 h-6 rounded-full bg-cyan-400 text-black flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 animate-pulse';
+            badge.innerHTML = stepNum;
+        } else if (state === 'error') {
+            item.className = 'flex items-start gap-3 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30';
+            badge.className = 'w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5';
+            badge.innerHTML = '✕';
+        }
+    }
+
+    function showAlert(type, title, message) {
+        const alert = document.getElementById('analysisAlert');
+        const alertTitle = document.getElementById('analysisAlertTitle');
+        const alertMsg = document.getElementById('analysisAlertMessage');
+        const alertIcon = document.getElementById('analysisAlertIcon');
+
+        alert.classList.remove('hidden');
+        alertTitle.textContent = title;
+        alertMsg.textContent = message;
+
+        if (type === 'error') {
+            alert.className = 'p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-xs flex items-start gap-3';
+            alertIcon.setAttribute('data-lucide', 'alert-triangle');
+        } else if (type === 'success') {
+            alert.className = 'p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs flex items-start gap-3';
+            alertIcon.setAttribute('data-lucide', 'check-circle');
+        } else {
+            alert.className = 'p-4 rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-xs flex items-start gap-3';
+            alertIcon.setAttribute('data-lucide', 'info');
+        }
+        lucide.createIcons();
+    }
+
+    function dismissAlert() {
+        document.getElementById('analysisAlert').classList.add('hidden');
+    }
+
+    // Run Real CSV Analysis Execution
+    async function runAnalysis() {
+        if (!selectedFile) {
+            showAlert('error', 'No File Selected', 'Please select or drop a CSV network capture file before running analysis.');
+            return;
+        }
+
+        const runBtn = document.getElementById('runAnalysisBtn');
+        const btnText = document.getElementById('btnText');
+        const progressBar = document.getElementById('analysisProgressBar');
+        const statusText = document.getElementById('pipelineStatusText');
+        const statusBadge = document.getElementById('pipelineStatusBadge');
+        const statusDot = document.getElementById('pipelineStatusDot');
+
+        runBtn.disabled = true;
+        btnText.textContent = 'Processing Network Traffic...';
+        statusDot.className = 'w-2 h-2 rounded-full bg-cyan-400 animate-pulse';
+        statusText.textContent = 'Uploading and validating CSV dataset...';
+        progressBar.style.width = '10%';
+        statusBadge.textContent = '10%';
+
+        setStepState(2, 'active', 'Step 2: Validating Features', 'Parsing and inspecting columns...');
+
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+
+        try {
+            const startRes = await fetch('/analyze_csv', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!startRes.ok) {
+                const errData = await startRes.json();
+                throw new Error(errData.error || 'Failed to start CSV analysis.');
+            }
+
+            const startData = await startRes.json();
+            const jobId = startData.job_id;
+
+            setStepState(2, 'completed', 'Step 2: Validated', `Verified 78 features across ${startData.valid_rows || 'all'} flows`);
+            setStepState(3, 'active', 'Step 3: AI Inference', 'Random Forest batch predicting...');
+
+            // Poll progress
+            pollInterval = setInterval(async () => {
+                try {
+                    const pRes = await fetch(`/analysis_progress/${jobId}`);
+                    if (!pRes.ok) throw new Error('Failed to fetch job progress');
+
+                    const pData = await pRes.json();
+                    const pct = pData.progress || 0;
+                    progressBar.style.width = pct + '%';
+                    statusBadge.textContent = pct + '%';
+                    statusText.textContent = pData.message || `Classifying network flows (${pct}%)...`;
+
+                    if (pData.status === 'completed') {
+                        clearInterval(pollInterval);
+                        onAnalysisSuccess(pData.summary);
+                    } else if (pData.status === 'error') {
+                        clearInterval(pollInterval);
+                        throw new Error(pData.error || 'Prediction worker failed');
+                    }
+                } catch (pollErr) {
+                    clearInterval(pollInterval);
+                    onAnalysisError(pollErr.message);
+                }
+            }, 800);
+
+        } catch (err) {
+            onAnalysisError(err.message);
+        }
+    }
+
+    function onAnalysisSuccess(summary) {
+        const runBtn = document.getElementById('runAnalysisBtn');
+        const btnText = document.getElementById('btnText');
+        const progressBar = document.getElementById('analysisProgressBar');
+        const statusText = document.getElementById('pipelineStatusText');
+        const statusBadge = document.getElementById('pipelineStatusBadge');
+        const statusDot = document.getElementById('pipelineStatusDot');
+
+        runBtn.disabled = false;
+        btnText.textContent = 'Run Another Analysis';
+        progressBar.style.width = '100%';
+        statusBadge.textContent = '100%';
+        statusDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        statusText.textContent = 'Analysis Complete — Dashboard Updated';
+
+        setStepState(3, 'completed', 'Step 3: AI Inference Complete', 'Batch inference finished');
+        setStepState(4, 'completed', 'Step 4: Real Results Published', `${summary.total_records || 0} flows classified`);
+
+        // Update real dataset insights
+        document.getElementById('insightTotalRecords').textContent = (summary.total_records || 0).toLocaleString();
+        document.getElementById('insightFeatures').textContent = (summary.features_used || 78) + ' Features';
+        document.getElementById('insightClasses').textContent = (summary.attack_classes || 0) + ' Classes';
+        document.getElementById('insightBenignRecords').textContent = (summary.benign_count || 0).toLocaleString();
+
+        // Reveal navigation actions
+        document.getElementById('analysisCompleteActions').classList.remove('hidden');
+
+        showAlert('success', 'Analysis Completed Successfully',
+            `Classified ${summary.total_records.toLocaleString()} network flows. Identified ${summary.threat_count.toLocaleString()} threats (${summary.threat_percentage}% threat rate). Real results are ready across the console.`);
+    }
+
+    function onAnalysisError(msg) {
+        const runBtn = document.getElementById('runAnalysisBtn');
+        const btnText = document.getElementById('btnText');
+        const progressBar = document.getElementById('analysisProgressBar');
+        const statusText = document.getElementById('pipelineStatusText');
+        const statusDot = document.getElementById('pipelineStatusDot');
+
+        runBtn.disabled = false;
+        btnText.textContent = 'Retry Analysis';
+        progressBar.style.width = '0%';
+        statusDot.className = 'w-2 h-2 rounded-full bg-rose-500';
+        statusText.textContent = 'Analysis Failed';
+
+        setStepState(2, 'error', 'Validation Error', msg);
+        showAlert('error', 'Analysis Failed', msg);
+    }
+</script>
+{% endblock %}

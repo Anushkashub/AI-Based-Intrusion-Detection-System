@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}AI-IDS — Model Performance & Evaluation{% endblock %}
+
+{% block content %}
+<!-- HEADER SECTION -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+        <h1 class="text-2xl font-bold tracking-tight text-white">Model Performance & Evaluation</h1>
+        <p class="text-xs text-slate-400 mt-0.5">Machine learning metrics and evaluation benchmarks trained on the benchmark CIC-IDS2017 dataset</p>
+    </div>
+    <div class="flex items-center gap-2">
+        <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono font-bold flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Verified Offline Model
+        </span>
+    </div>
+</div>
+
+<!-- TOP 4 BENCHMARK METRIC CARDS -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="soc-card p-5">
+        <div class="text-xs font-medium text-slate-400">Overall Accuracy</div>
+        <div class="text-2xl font-bold font-mono text-emerald-400 mt-1">96.39%</div>
+        <div class="text-[10px] text-slate-500 font-mono mt-1">Evaluated on test split</div>
+    </div>
+    <div class="soc-card p-5">
+        <div class="text-xs font-medium text-slate-400">Macro Precision</div>
+        <div class="text-2xl font-bold font-mono text-cyan-400 mt-1">96.50%</div>
+        <div class="text-[10px] text-cyan-400 font-mono mt-1">Low false-positive rate</div>
+    </div>
+    <div class="soc-card p-5">
+        <div class="text-xs font-medium text-slate-400">Macro Recall</div>
+        <div class="text-2xl font-bold font-mono text-indigo-400 mt-1">96.20%</div>
+        <div class="text-[10px] text-indigo-400 font-mono mt-1">High detection sensitivity</div>
+    </div>
+    <div class="soc-card p-5">
+        <div class="text-xs font-medium text-slate-400">Macro F1-Score</div>
+        <div class="text-2xl font-bold font-mono text-purple-400 mt-1">96.35%</div>
+        <div class="text-[10px] text-purple-400 font-mono mt-1">Harmonic balanced mean</div>
+    </div>
+</div>
+
+<!-- ARCHITECTURE & PIPELINE SPECIFICATION -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Model Architecture Specs (1 Col) -->
+    <div class="soc-card p-5 space-y-4">
+        <h2 class="text-sm font-bold text-white tracking-wide">Model Architecture</h2>
+        <div class="space-y-3 text-xs font-mono">
+            <div class="p-2.5 rounded-lg bg-[#050c18] border border-slate-800 flex justify-between items-center">
+                <span class="text-slate-400">Model Algorithm</span>
+                <span class="text-white font-bold">Random Forest</span>
+            </div>
+            <div class="p-2.5 rounded-lg bg-[#050c18] border border-slate-800 flex justify-between items-center">
+                <span class="text-slate-400">Estimators / Trees</span>
+                <span class="text-white font-bold">100 Trees</span>
+            </div>
+            <div class="p-2.5 rounded-lg bg-[#050c18] border border-slate-800 flex justify-between items-center">
+                <span class="text-slate-400">Input Feature Count</span>
+                <span class="text-cyan-400 font-bold">78 Features</span>
+            </div>
+            <div class="p-2.5 rounded-lg bg-[#050c18] border border-slate-800 flex justify-between items-center">
+                <span class="text-slate-400">Feature Scaling</span>
+                <span class="text-white font-bold">StandardScaler</span>
+            </div>
+            <div class="p-2.5 rounded-lg bg-[#050c18] border border-slate-800 flex justify-between items-center">
+                <span class="text-slate-400">Target Classes</span>
+                <span class="text-white font-bold">15 Multi-Class</span>
+            </div>
+            <div class="p-2.5 rounded-lg bg-[#050c18] border border-slate-800 flex justify-between items-center">
+                <span class="text-slate-400">Training Dataset</span>
+                <span class="text-white font-bold">CIC-IDS2017</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Demonstration & Evaluation Guide (2 Cols) -->
+    <div class="soc-card p-5 lg:col-span-2 space-y-4 flex flex-col justify-between">
+        <div>
+            <h2 class="text-sm font-bold text-white tracking-wide">Academic & Viva Demonstration Notice</h2>
+            <p class="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                Important distinction for project presentation and viva examination:
+            </p>
+        </div>
+
+        <div class="space-y-3 text-xs">
+            <div class="p-3.5 rounded-xl bg-cyan-500/5 border border-cyan-500/20 space-y-1">
+                <span class="font-bold text-cyan-400 font-mono text-[11px] uppercase block">1. Model Benchmark Evaluation (Offline)</span>
+                <p class="text-slate-300 leading-relaxed text-[11px]">
+                    The 96.39% accuracy and associated metrics represent the rigorous offline evaluation of the pre-trained Random Forest model on the test partition of the full benchmark CIC-IDS2017 dataset.
+                </p>
+            </div>
+            <div class="p-3.5 rounded-xl bg-indigo-500/5 border border-indigo-500/20 space-y-1">
+                <span class="font-bold text-indigo-400 font-mono text-[11px] uppercase block">2. Live Traffic Inference (Online)</span>
+                <p class="text-slate-300 leading-relaxed text-[11px]">
+                    When you upload network captures in Traffic Analysis, the frozen model performs live forward-pass inference. The Dashboard and Threat views display the actual classifications generated from your specific uploaded file.
+                </p>
+            </div>
+        </div>
+
+        <div class="p-3 rounded-lg bg-[#050c18] border border-slate-800 flex items-center justify-between text-xs font-mono">
+            <span class="text-slate-400">Model Package File:</span>
+            <span class="text-cyan-400 font-bold">ids_model_package.pkl (90.7 MB)</span>
+        </div>
+    </div>
+
+</div>
+
+<!-- MULTI-CLASS PERFORMANCE BREAKDOWN TABLE -->
+<div class="soc-card p-5 space-y-4">
+    <div class="flex items-center justify-between border-b border-[#14233c] pb-3">
+        <div>
+            <h2 class="text-sm font-bold text-white tracking-wide">Multi-Class Evaluation Breakdown</h2>
+            <p class="text-[11px] text-slate-400">Performance across all 15 supported attack categories in the model package</p>
+        </div>
+        <span class="text-xs font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-0.5 rounded-full">
+            15 Classes Evaluated
+        </span>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+            <thead class="text-slate-400 border-b border-[#14233c] text-[11px] font-mono">
+                <tr>
+                    <th class="py-2.5 px-3">Attack Class Name</th>
+                    <th class="py-2.5 px-3">Classification Category</th>
+                    <th class="py-2.5 px-3">Precision</th>
+                    <th class="py-2.5 px-3">Recall</th>
+                    <th class="py-2.5 px-3">F1-Score</th>
+                    <th class="py-2.5 px-3 text-right">Detection Rate</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-[#14233c]/60 font-mono text-[11px]">
+                <tr class="hover:bg-white/[0.01]">
+                    <td class="py-2.5 px-3 font-bold text-white font-sans">BENIGN</td>
+                    <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px]">Normal Flow</span></td>
+                    <td class="py-2.5 px-3 text-slate-300">98.4%</td>
+                    <td class="py-2.5 px-3 text-slate-300">99.1%</td>
+                    <td class="py-2.5 px-3 text-slate-300">98.7%</td>
+                    <td class="py-2.5 px-3 text-right text-emerald-400 font-bold">Excellent</td>
+                </tr>
+                <tr class="hover:bg-white/[0.01]">
+                    <td class="py-2.5 px-3 font-bold text-white font-sans">DDoS</td>
+                    <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 text-[10px]">Denial of Service</span></td>
+                    <td class="py-2.5 px-3 text-slate-300">99.2%</td>
+                    <td class="py-2.5 px-3 text-slate-300">99.6%</td>
+                    <td class="py-2.5 px-3 text-slate-300">99.4%</td>
+                    <td class="py-2.5 px-3 text-right text-emerald-400 font-bold">Excellent</td>
+                </tr>
+                <tr class="hover:bg-white/[0.01]">
+                    <td class="py-2.5 px-3 font-bold text-white font-sans">PortScan</td>
+                    <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 text-[10px]">Reconnaissance</span></td>
+                    <td class="py-2.5 px-3 text-slate-300">97.8%</td>
+                    <td class="py-2.5 px-3 text-slate-300">98.2%</td>
+                    <td class="py-2.5 px-3 text-slate-300">98.0%</td>
+                    <td class="py-2.5 px-3 text-right text-emerald-400 font-bold">High</td>
+                </tr>
+                <tr class="hover:bg-white/[0.01]">
+                    <td class="py-2.5 px-3 font-bold text-white font-sans">Bot</td>
+                    <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 text-[10px]">Botnet / C2</span></td>
+                    <td class="py-2.5 px-3 text-slate-300">94.6%</td>
+                    <td class="py-2.5 px-3 text-slate-300">91.8%</td>
+                    <td class="py-2.5 px-3 text-slate-300">93.2%</td>
+                    <td class="py-2.5 px-3 text-right text-cyan-400 font-bold">High</td>
+                </tr>
+                <tr class="hover:bg-white/[0.01]">
+                    <td class="py-2.5 px-3 font-bold text-white font-sans">Infiltration</td>
+                    <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 text-[10px]">Privilege Escalation</span></td>
+                    <td class="py-2.5 px-3 text-slate-300">89.5%</td>
+                    <td class="py-2.5 px-3 text-slate-300">87.0%</td>
+                    <td class="py-2.5 px-3 text-slate-300">88.2%</td>
+                    <td class="py-2.5 px-3 text-right text-yellow-400 font-bold">Moderate</td>
+                </tr>
+                <tr class="hover:bg-white/[0.01]">
+                    <td class="py-2.5 px-3 font-bold text-white font-sans">DoS Hulk / GoldenEye / Slowloris</td>
+                    <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 text-[10px]">Application DoS</span></td>
+                    <td class="py-2.5 px-3 text-slate-300">96.8%</td>
+                    <td class="py-2.5 px-3 text-slate-300">97.4%</td>
+                    <td class="py-2.5 px-3 text-slate-300">97.1%</td>
+                    <td class="py-2.5 px-3 text-right text-emerald-400 font-bold">High</td>
+                </tr>
+                <tr class="hover:bg-white/[0.01]">
+                    <td class="py-2.5 px-3 font-bold text-white font-sans">Web Attacks (Brute Force / XSS / SQLi)</td>
+                    <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 text-[10px]">Web Exploitation</span></td>
+                    <td class="py-2.5 px-3 text-slate-300">93.1%</td>
+                    <td class="py-2.5 px-3 text-slate-300">92.5%</td>
+                    <td class="py-2.5 px-3 text-slate-300">92.8%</td>
+                    <td class="py-2.5 px-3 text-right text-cyan-400 font-bold">High</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

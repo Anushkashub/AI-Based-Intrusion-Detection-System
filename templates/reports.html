@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}AI-IDS — Security Reports & Exports{% endblock %}
+
+{% block content %}
+<!-- HEADER SECTION -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+        <h1 class="text-2xl font-bold tracking-tight text-white">Security Reports</h1>
+        <p class="text-xs text-slate-400 mt-0.5">Download comprehensive prediction logs, incident dossiers, and CSV analysis results</p>
+    </div>
+    <div class="flex items-center gap-3">
+        {% if report.has_results %}
+        <a href="{{ url_for('download_results') }}" class="btn-cyan px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 font-bold">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Export Analysis CSV</span>
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- REAL REPORT STATS -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="soc-card p-5 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+            <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+        </div>
+        <div>
+            <div class="text-[11px] text-slate-400 font-medium">Dataset Inference Status</div>
+            <div class="text-lg font-bold font-mono text-white">
+                {% if report.has_results %}
+                    <span class="text-emerald-400">Available</span> ({{ report.filesize }})
+                {% else %}
+                    <span class="text-slate-500">No Export Ready</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="soc-card p-5 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+            <i data-lucide="calendar" class="w-5 h-5"></i>
+        </div>
+        <div>
+            <div class="text-[11px] text-slate-400 font-medium">Latest Analysis Timestamp</div>
+            <div class="text-sm font-bold font-mono text-white">{{ report.last_modified }}</div>
+        </div>
+    </div>
+
+    <div class="soc-card p-5 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+            <i data-lucide="shield-alert" class="w-5 h-5"></i>
+        </div>
+        <div>
+            <div class="text-[11px] text-slate-400 font-medium">Records & Threats Count</div>
+            <div class="text-lg font-bold font-mono text-white">
+                {{ "{:,}".format(report.total_records) }} records / <span class="text-rose-400">{{ "{:,}".format(report.threat_count) }} threats</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- AVAILABLE REPORT DOSSIERS TABLE -->
+<div class="soc-card p-5 space-y-4">
+    <div class="flex items-center justify-between border-b border-[#14233c] pb-3">
+        <div>
+            <h2 class="text-sm font-bold text-white tracking-wide">Available Export Dossiers</h2>
+            <p class="text-[11px] text-slate-400">Generated logs and auditable intelligence artifacts</p>
+        </div>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+            <thead class="text-slate-400 border-b border-[#14233c] text-[11px] font-mono">
+                <tr>
+                    <th class="py-2.5 px-3">Dossier / File Name</th>
+                    <th class="py-2.5 px-3">Type</th>
+                    <th class="py-2.5 px-3">Generated</th>
+                    <th class="py-2.5 px-3">Size</th>
+                    <th class="py-2.5 px-3 text-right">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-[#14233c]/60 font-mono text-[11px]">
+
+                <!-- 1. CSV Prediction Results -->
+                <tr class="hover:bg-white/[0.01]">
+                    <td class="py-3 px-3 text-white font-bold flex items-center gap-2">
+                        <i data-lucide="file-spreadsheet" class="w-4 h-4 text-[#00d2ff]"></i>
+                        <span>dashboard_analysis_results.csv</span>
+                    </td>
+                    <td class="py-3 px-3"><span class="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 text-[10px]">AI Prediction Results</span></td>
+                    <td class="py-3 px-3 text-slate-300">{{ report.last_modified }}</td>
+                    <td class="py-3 px-3 text-slate-400">{{ report.filesize }}</td>
+                    <td class="py-3 px-3 text-right">
+                        {% if report.has_results %}
+                        <a href="{{ url_for('download_results') }}" class="px-2.5 py-1 rounded bg-[#0c1c38] hover:bg-[#00d2ff] hover:text-[#040814] text-[#00d2ff] border border-[#00d2ff]/30 text-[10px] font-bold transition font-sans inline-flex items-center gap-1">
+                            <i data-lucide="download" class="w-3 h-3"></i>
+                            <span>Download CSV</span>
+                        </a>
+                        {% else %}
+                        <span class="text-slate-500 text-[10px]">Run Analysis First</span>
+                        {% endif %}
+                    </td>
+                </tr>
+
+                <!-- 2. JSON Incidents Feed -->
+                <tr class="hover:bg-white/[0.01]">
+                    <td class="py-3 px-3 text-white font-bold flex items-center gap-2">
+                        <i data-lucide="code" class="w-4 h-4 text-indigo-400"></i>
+                        <span>incidents_feed.json</span>
+                    </td>
+                    <td class="py-3 px-3"><span class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 text-[10px]">JSON API Export</span></td>
+                    <td class="py-3 px-3 text-slate-300">Live Engine</td>
+                    <td class="py-3 px-3 text-slate-400">Dynamic</td>
+                    <td class="py-3 px-3 text-right">
+                        <a href="{{ url_for('get_incidents_api') }}" target="_blank" class="px-2.5 py-1 rounded bg-[#0c1c38] hover:bg-[#00d2ff] hover:text-[#040814] text-[#00d2ff] border border-[#00d2ff]/30 text-[10px] font-bold transition font-sans inline-flex items-center gap-1">
+                            <i data-lucide="external-link" class="w-3 h-3"></i>
+                            <span>View JSON</span>
+                        </a>
+                    </td>
+                </tr>
+
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI-IDS — Security Operations Center{% endblock %}</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            box-sizing: border-box;
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        body {
+            background-color: #030611;
+            color: #f1f5f9;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Subtle Blueprint Grid Pattern */
+        .bg-grid {
+            background-image:
+                linear-gradient(to right, rgba(0, 210, 255, 0.025) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 210, 255, 0.025) 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+
+        /* SOC Container Cards */
+        .soc-card, .aiids-card, .soc-box {
+            background: #081122;
+            border: 1px solid #14233c;
+            border-radius: 14px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .soc-card:hover, .aiids-card:hover, .soc-box:hover {
+            border-color: rgba(0, 210, 255, 0.35);
+        }
+
+        /* Navigation Styles */
+        .nav-item {
+            color: #94a3b8;
+            transition: all 0.2s ease;
+        }
+
+        .nav-item:hover {
+            color: #ffffff;
+            background: #0d1a33;
+        }
+
+        .nav-item-active {
+            background: #00d2ff !important;
+            color: #040814 !important;
+            font-weight: 700 !important;
+            box-shadow: 0 0 18px rgba(0, 210, 255, 0.4);
+        }
+
+        .nav-item-active i {
+            color: #040814 !important;
+        }
+
+        /* Standard Buttons */
+        .btn-cyan {
+            background: #00d2ff;
+            color: #040814;
+            font-weight: 700;
+            transition: all 0.2s ease;
+        }
+
+        .btn-cyan:hover {
+            background: #2ee0ff;
+            box-shadow: 0 0 18px rgba(0, 210, 255, 0.45);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #040814;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00d2ff;
+        }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body class="min-h-screen flex flex-col bg-grid">
+
+    <!-- =========================================================
+         TOP HEADER NAVBAR
+         ========================================================= -->
+    <header class="border-b border-[#14233c] bg-[#060c1c]/95 backdrop-blur px-6 py-3 flex items-center justify-between sticky top-0 z-50">
+        <div class="flex items-center gap-6">
+            <a href="{{ url_for('dashboard') }}" class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-[#0d1c38] border border-[#00d2ff]/40 flex items-center justify-center shadow-[0_0_12px_rgba(0,210,255,0.25)]">
+                    <i data-lucide="shield" class="w-4 h-4 text-[#00d2ff]"></i>
+                </div>
+                <div>
+                    <span class="text-base font-extrabold tracking-wider text-white">AI-IDS</span>
+                    <span class="text-[9px] block text-[#00d2ff] tracking-widest font-mono uppercase -mt-0.5">SECURITY OPERATIONS</span>
+                </div>
+            </a>
+
+            <!-- Search Bar (Desktop) -->
+            <div class="relative hidden lg:flex items-center w-80">
+                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-500 absolute left-3.5 pointer-events-none"></i>
+                <input
+                    id="globalSearchInput"
+                    type="text"
+                    autocomplete="off"
+                    placeholder="Search attack, risk, record, incident..."
+                    class="w-full bg-[#081122] border border-[#14233c] text-xs text-slate-200 placeholder-slate-500 pl-9 pr-8 py-1.5 rounded-lg focus:outline-none focus:border-[#00d2ff]/60"
+                >
+                <button id="clearSearchBtn" type="button" class="hidden absolute right-2.5 text-slate-500 hover:text-slate-300 cursor-pointer" onclick="clearGlobalSearch()">
+                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                </button>
+
+                <!-- Search Results Popover Dropdown -->
+                <div id="searchResultsDropdown" class="hidden absolute left-0 top-11 w-96 max-h-[30rem] overflow-y-auto bg-[#081122] border border-[#162540] rounded-xl shadow-2xl p-2 z-50 divide-y divide-[#14233c]/60">
+                    <!-- Dynamic Search Results Injected Here -->
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+
+            <!-- Live Model Indicator Pill -->
+            <div class="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#081122] border border-[#14233c] text-[11px] font-mono text-cyan-400">
+                <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                <span>Random Forest (78 Feats)</span>
+            </div>
+
+            <!-- User Menu -->
+            <div class="relative">
+                <button onclick="toggleAdminMenu()" class="flex items-center gap-2.5 pl-2 py-1 rounded-lg hover:bg-[#0c182e] transition cursor-pointer">
+                    <div class="w-8 h-8 rounded-full bg-[#00d2ff] text-[#040814] font-bold text-xs flex items-center justify-center">
+                        {{ (username or session.get('username') or 'A')[0]|upper }}
+                    </div>
+                    <div class="hidden sm:block text-left">
+                        <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                            {{ username or session.get('username') or 'Admin' }}
+                            <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
+                        </span>
+                        <span class="text-[10px] text-slate-500 block -mt-0.5 font-mono">SOC Analyst</span>
+                    </div>
+                </button>
+
+                <!-- Dropdown Menu -->
+                <div id="adminDropdown" class="hidden absolute right-0 top-12 w-48 bg-[#081122] border border-[#162540] rounded-xl shadow-2xl p-1.5 z-50 space-y-1">
+                    <div class="px-3 py-2 border-b border-slate-800">
+                        <p class="text-xs font-bold text-white">{{ username or session.get('username') or 'Admin' }}</p>
+                        <p class="text-[10px] text-slate-400 font-mono">soc.analyst@ids.internal</p>
+                    </div>
+                    <a href="{{ url_for('system_info') }}" class="flex items-center gap-2 px-3 py-2 text-xs text-slate-300 hover:text-white hover:bg-[#0c182e] rounded-lg transition font-medium">
+                        <i data-lucide="settings" class="w-3.5 h-3.5"></i>
+                        <span>System Info</span>
+                    </a>
+                    <a href="{{ url_for('logout') }}" class="flex items-center gap-2 px-3 py-2 text-xs text-rose-400 hover:bg-rose-500/10 rounded-lg transition font-medium">
+                        <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                        <span>Logout</span>
+                    </a>
+                </div>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- =========================================================
+         BODY LAYOUT: SIDEBAR + MAIN WORKSPACE
+         ========================================================= -->
+    <div class="flex-1 flex overflow-hidden">
+
+        <!-- SIDEBAR NAVIGATION -->
+        <aside class="w-64 border-r border-[#14233c] bg-[#050a17] p-4 flex flex-col justify-between hidden md:flex shrink-0">
+            <nav class="space-y-1.5">
+
+                <!-- Dashboard -->
+                <a href="{{ url_for('dashboard') }}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs transition {% if active_page == 'dashboard' %}nav-item-active{% else %}nav-item{% endif %}">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                    <span>Dashboard</span>
+                </a>
+
+                <!-- Traffic Analysis -->
+                <a href="{{ url_for('traffic_analysis_page') }}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs transition {% if active_page == 'traffic' %}nav-item-active{% else %}nav-item{% endif %}">
+                    <i data-lucide="network" class="w-4 h-4"></i>
+                    <span>Traffic Analysis</span>
+                </a>
+
+                <!-- Threat Detection -->
+                <a href="{{ url_for('threats_page') }}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs transition {% if active_page == 'threats' %}nav-item-active{% else %}nav-item{% endif %}">
+                    <i data-lucide="shield-alert" class="w-4 h-4"></i>
+                    <span>Threat Results</span>
+                </a>
+
+                <!-- Incident Management -->
+                <a href="{{ url_for('incidents_view') }}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs transition {% if active_page == 'incidents' %}nav-item-active{% else %}nav-item{% endif %}">
+                    <i data-lucide="alert-octagon" class="w-4 h-4"></i>
+                    <span>Incidents Queue</span>
+                </a>
+
+                <!-- Security Reports -->
+                <a href="{{ url_for('reports_page') }}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs transition {% if active_page == 'reports' %}nav-item-active{% else %}nav-item{% endif %}">
+                    <i data-lucide="file-text" class="w-4 h-4"></i>
+                    <span>Reports</span>
+                </a>
+
+                <!-- Model Performance -->
+                <a href="{{ url_for('model_performance_page') }}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs transition {% if active_page == 'model' %}nav-item-active{% else %}nav-item{% endif %}">
+                    <i data-lucide="cpu" class="w-4 h-4"></i>
+                    <span>Model Performance</span>
+                </a>
+
+                <!-- System Information -->
+                <a href="{{ url_for('system_info') }}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs transition {% if active_page == 'system' %}nav-item-active{% else %}nav-item{% endif %}">
+                    <i data-lucide="hard-drive" class="w-4 h-4"></i>
+                    <span>System Information</span>
+                </a>
+
+            </nav>
+
+            <div class="space-y-3 pt-4 border-t border-slate-800/80">
+                <div class="flex items-center gap-2 text-xs font-mono text-emerald-400 px-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>All Systems Operational</span>
+                </div>
+                <a href="{{ url_for('logout') }}" class="flex items-center gap-2 px-3 py-2 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition font-medium">
+                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- MAIN PAGE CONTENT AREA -->
+        <main class="flex-1 p-6 md:p-8 space-y-6 overflow-y-auto">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- =========================================================
+         GLOBAL JAVASCRIPT & LUCIDE INITIALIZATION
+         ========================================================= -->
+    <script>
+        lucide.createIcons();
+
+        function toggleAdminMenu() {
+            const dropdown = document.getElementById("adminDropdown");
+            if (dropdown) dropdown.classList.toggle("hidden");
+        }
+
+        document.addEventListener("click", function(e) {
+            const dropdown = document.getElementById("adminDropdown");
+            const btn = e.target.closest("button");
+            if (dropdown && !dropdown.contains(e.target) && (!btn || !btn.onclick || btn.onclick.name !== "toggleAdminMenu")) {
+                dropdown.classList.add("hidden");
+            }
+        });
+
+        // Global Search Functionality
+        const searchInput = document.getElementById("globalSearchInput");
+        const searchDropdown = document.getElementById("searchResultsDropdown");
+        const clearBtn = document.getElementById("clearSearchBtn");
+        let searchTimeout = null;
+
+        function clearGlobalSearch() {
+            if (searchInput) searchInput.value = "";
+            if (searchDropdown) {
+                searchDropdown.classList.add("hidden");
+                searchDropdown.innerHTML = "";
+            }
+            if (clearBtn) clearBtn.classList.add("hidden");
+        }
+
+        if (searchInput && searchDropdown) {
+            searchInput.addEventListener("input", function() {
+                const q = this.value.trim();
+                if (clearBtn) {
+                    if (q.length > 0) clearBtn.classList.remove("hidden");
+                    else clearBtn.classList.add("hidden");
+                }
+
+                clearTimeout(searchTimeout);
+                if (q.length === 0) {
+                    searchDropdown.classList.add("hidden");
+                    searchDropdown.innerHTML = "";
+                    return;
+                }
+
+                searchTimeout = setTimeout(() => {
+                    performGlobalSearch(q);
+                }, 220);
+            });
+
+            searchInput.addEventListener("focus", function() {
+                if (this.value.trim().length > 0 && searchDropdown.children.length > 0) {
+                    searchDropdown.classList.remove("hidden");
+                }
+            });
+
+            document.addEventListener("click", function(e) {
+                if (!searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
+                    searchDropdown.classList.add("hidden");
+                }
+            });
+
+            document.addEventListener("keydown", function(e) {
+                if (e.key === "Escape") {
+                    searchDropdown.classList.add("hidden");
+                }
+            });
+        }
+
+        async function performGlobalSearch(query) {
+            try {
+                searchDropdown.classList.remove("hidden");
+                searchDropdown.innerHTML = `
+                    <div class="p-3 text-center text-xs text-slate-400 font-mono flex items-center justify-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-[#00d2ff] animate-ping"></span>
+                        <span>Searching logs & threat intelligence...</span>
+                    </div>
+                `;
+
+                const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+                if (!res.ok) {
+                    searchDropdown.innerHTML = `<div class="p-3 text-xs text-rose-400 font-mono">Error querying search API.</div>`;
+                    return;
+                }
+                const data = await res.json();
+                renderSearchResults(data, query);
+            } catch (err) {
+                searchDropdown.innerHTML = `<div class="p-3 text-xs text-rose-400 font-mono">Search failed: ${err.message}</div>`;
+            }
+        }
+
+        function renderSearchResults(data, query) {
+            const hasIncidents = data.incidents && data.incidents.length > 0;
+            const hasThreats = data.threats && data.threats.length > 0;
+
+            if (!hasIncidents && !hasThreats) {
+                searchDropdown.innerHTML = `
+                    <div class="p-4 text-center space-y-1">
+                        <p class="text-xs font-bold text-slate-300">No matching results found</p>
+                        <p class="text-[11px] text-slate-500 font-mono">No threats or incidents matched "${escapeHtml(query)}"</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = "";
+
+            // Incidents Group
+            if (hasIncidents) {
+                html += `
+                    <div class="p-1 space-y-1">
+                        <div class="px-2 py-1 text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                            <span>Incidents (${data.incidents.length})</span>
+                            <a href="/incidents" class="text-[#00d2ff] hover:underline text-[10px] lowercase font-sans">view all</a>
+                        </div>
+                `;
+                data.incidents.forEach(inc => {
+                    const sev = (inc.severity || '').toLowerCase();
+                    const sevColor = sev === 'critical' ? 'text-rose-400 border-rose-500/30 bg-rose-500/10' :
+                                     sev === 'high' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' :
+                                     'text-cyan-400 border-cyan-500/30 bg-cyan-500/10';
+                    html += `
+                        <a href="/incident/${encodeURIComponent(inc.id)}" class="flex items-center justify-between p-2 rounded-lg hover:bg-[#0d1c38] transition border border-transparent hover:border-[#00d2ff]/30 text-xs">
+                            <div class="space-y-0.5">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-mono font-bold text-white">${escapeHtml(inc.id)}</span>
+                                    <span class="text-slate-300 font-semibold">${escapeHtml(inc.attack_type)}</span>
+                                </div>
+                                <div class="text-[10px] text-slate-500 font-mono">${escapeHtml(inc.source_ip || 'Internal')} &bull; Status: ${escapeHtml(inc.status)}</div>
+                            </div>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-mono border ${sevColor}">
+                                ${escapeHtml(inc.severity)}
+                            </span>
+                        </a>
+                    `;
+                });
+                html += `</div>`;
+            }
+
+            // Threat Detections Group
+            if (hasThreats) {
+                html += `
+                    <div class="p-1 space-y-1">
+                        <div class="px-2 py-1 text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                            <span>Threat Detections (${data.threats.length})</span>
+                            <a href="/threats" class="text-[#00d2ff] hover:underline text-[10px] lowercase font-sans">view in threats</a>
+                        </div>
+                `;
+                data.threats.forEach(th => {
+                    const rsk = (th.risk_level || '').toLowerCase();
+                    const riskColor = rsk === 'critical' ? 'text-rose-400 border-rose-500/30 bg-rose-500/10' :
+                                      rsk === 'high' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' :
+                                      rsk === 'medium' ? 'text-indigo-400 border-indigo-500/30 bg-indigo-500/10' :
+                                      'text-slate-400 border-slate-700 bg-slate-800/40';
+                    html += `
+                        <a href="/threats" class="block p-2 rounded-lg hover:bg-[#0d1c38] transition border border-transparent hover:border-[#00d2ff]/30 text-xs space-y-1">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2 font-mono">
+                                    <span class="text-slate-400 font-semibold">#${th.record}</span>
+                                    <span class="text-white font-bold">${escapeHtml(th.attack_type)}</span>
+                                </div>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-mono border ${riskColor}">
+                                    ${escapeHtml(th.risk_level)}
+                                </span>
+                            </div>
+                            <div class="text-[10px] text-slate-400 truncate font-mono">
+                                Action: ${escapeHtml(th.recommended_action)}
+                            </div>
+                        </a>
+                    `;
+                });
+                html += `</div>`;
+            }
+
+            searchDropdown.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+
+</body>
+</html>

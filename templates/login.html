@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-IDS — Enterprise Security Console</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            box-sizing: border-box;
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        body {
+            background-color: #030611;
+            background-image:
+                linear-gradient(to right, rgba(0, 210, 255, 0.035) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 210, 255, 0.035) 1px, transparent 1px),
+                radial-gradient(circle at 24% 45%, rgba(0, 195, 255, 0.16) 0%, transparent 45%),
+                radial-gradient(circle at 76% 50%, rgba(0, 230, 255, 0.09) 0%, transparent 45%);
+            background-size: 38px 38px, 38px 38px, 100% 100%, 100% 100%;
+            min-height: 100vh;
+            color: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        .brand-title-metallic {
+            font-size: 4rem;
+            font-weight: 900;
+            line-height: 1;
+            letter-spacing: -0.02em;
+            background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 35%, #94a3b8 70%, #475569 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 4px 18px rgba(0, 210, 255, 0.35));
+        }
+
+        .shield-master-wrapper {
+            position: relative;
+            width: 120px;
+            height: 140px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: shieldFloat 4s ease-in-out infinite alternate;
+        }
+
+        @keyframes shieldFloat {
+            0% {
+                transform: translateY(0px);
+                filter: drop-shadow(0 0 25px rgba(0, 229, 255, 0.65));
+            }
+            100% {
+                transform: translateY(-4px);
+                filter: drop-shadow(0 0 40px rgba(0, 229, 255, 0.95)) drop-shadow(0 0 70px rgba(0, 100, 255, 0.4));
+            }
+        }
+
+        .engine-pill {
+            background: linear-gradient(135deg, rgba(0, 229, 201, 0.2) 0%, rgba(0, 150, 255, 0.1) 100%);
+            border: 1px solid rgba(0, 229, 201, 0.6);
+            box-shadow: 0 0 16px rgba(0, 229, 201, 0.35);
+        }
+
+        .aiids-card {
+            background: #081120;
+            border: 1px solid rgba(0, 210, 255, 0.35);
+            border-radius: 16px;
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 30px rgba(0, 180, 255, 0.08);
+        }
+
+        input.custom-input {
+            background-color: #060d19 !important;
+            border: 1px solid #16243b !important;
+            color: #ffffff !important;
+            transition: all 0.2s ease;
+        }
+
+        input.custom-input:-webkit-autofill,
+        input.custom-input:-webkit-autofill:hover,
+        input.custom-input:-webkit-autofill:focus,
+        input.custom-input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 30px #060d19 inset !important;
+            -webkit-text-fill-color: #ffffff !important;
+            caret-color: #ffffff !important;
+            border: 1px solid #16243b !important;
+        }
+
+        input.custom-input:focus {
+            outline: none !important;
+            border-color: #00e5c9 !important;
+            box-shadow: 0 0 0 1px #00e5c9, 0 0 12px rgba(0, 229, 201, 0.25) !important;
+            background-color: #081222 !important;
+        }
+
+        .btn-radiant-cyan {
+            background: #00e5c9;
+            color: #030712;
+            font-weight: 800;
+            box-shadow: 0 4px 22px rgba(0, 229, 201, 0.55);
+            transition: all 0.2s ease;
+        }
+
+        .btn-radiant-cyan:hover {
+            background: #1affdc;
+            box-shadow: 0 6px 28px rgba(0, 229, 201, 0.75);
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 select-none">
+
+    <!-- Decorative Binary Ambient Background -->
+    <div class="absolute top-6 left-8 font-mono text-[9px] text-cyan-500/20 leading-relaxed pointer-events-none hidden md:block">
+        1001 101 01 21<br>0<br>120113<br>00101 153<br>9110 011
+    </div>
+    <div class="absolute top-6 right-10 font-mono text-[9px] text-cyan-500/20 text-right leading-relaxed pointer-events-none hidden md:block">
+        10031 11111 &nbsp; 507 &nbsp; 3101 0004<br>10021 17301 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 10 00000<br>1001 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 000011 1013<br>301 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 10010100<br>0125 &nbsp; 1500 &nbsp; 0422 &nbsp; 0 0003
+    </div>
+
+    <!-- MAIN TWO-COLUMN CONTAINER -->
+    <div class="relative z-10 w-full max-w-[900px] mx-auto flex flex-col lg:flex-row items-center justify-between gap-10 lg:gap-16">
+
+        <!-- LEFT COLUMN: BRAND HERO -->
+        <div class="flex-1 flex flex-col items-center lg:items-start text-center lg:text-left space-y-7">
+            <!-- Animated Circuit Shield SVG -->
+            <div class="shield-master-wrapper">
+                <svg class="w-full h-full" viewBox="0 0 120 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="neonOuterGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#38bdf8"/>
+                            <stop offset="45%" stop-color="#00e5ff"/>
+                            <stop offset="100%" stop-color="#2563eb"/>
+                        </linearGradient>
+                        <radialGradient id="shieldCoreGlow" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stop-color="rgba(0, 229, 255, 0.25)"/>
+                            <stop offset="100%" stop-color="rgba(6, 13, 25, 0.85)"/>
+                        </radialGradient>
+                    </defs>
+                    <path d="M60 6C92 6 112 16 112 16C112 66 100 102 60 134C20 102 8 66 8 16C8 16 28 6 60 6Z"
+                          stroke="url(#neonOuterGrad)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="url(#shieldCoreGlow)"/>
+                    <path d="M60 16C86 16 102 24 102 24C102 66 92 96 60 122C28 96 18 66 18 24C18 24 34 16 60 16Z"
+                          stroke="rgba(0, 229, 255, 0.35)" stroke-width="1.5" stroke-dasharray="3 3"/>
+                    <line x1="42" y1="26" x2="42" y2="46" stroke="#00e5ff" stroke-width="2.2" stroke-linecap="round"/>
+                    <circle cx="42" cy="26" r="3" fill="#38bdf8"/>
+                    <line x1="60" y1="18" x2="60" y2="38" stroke="#00e5ff" stroke-width="2.5" stroke-linecap="round"/>
+                    <circle cx="60" cy="18" r="3.5" fill="#00e5ff"/>
+                    <line x1="78" y1="26" x2="78" y2="46" stroke="#00e5ff" stroke-width="2.2" stroke-linecap="round"/>
+                    <circle cx="78" cy="26" r="3" fill="#38bdf8"/>
+                    <path d="M25 44H35L42 54" stroke="#00e5ff" stroke-width="2.2" stroke-linecap="round"/>
+                    <circle cx="25" cy="44" r="3" fill="#38bdf8"/>
+                    <path d="M22 66H37" stroke="#00e5ff" stroke-width="2.2" stroke-linecap="round"/>
+                    <circle cx="22" cy="66" r="3" fill="#38bdf8"/>
+                    <path d="M27 88H37L45 80" stroke="#00e5ff" stroke-width="2.2" stroke-linecap="round"/>
+                    <circle cx="27" cy="88" r="3" fill="#38bdf8"/>
+                    <path d="M95 44H85L78 54" stroke="#00e5ff" stroke-width="2.2" stroke-linecap="round"/>
+                    <circle cx="95" cy="44" r="3" fill="#38bdf8"/>
+                    <path d="M98 66H83" stroke="#00e5ff" stroke-width="2.2" stroke-linecap="round"/>
+                    <circle cx="98" cy="66" r="3" fill="#38bdf8"/>
+                    <path d="M93 88H83L75 80" stroke="#00e5ff" stroke-width="2.2" stroke-linecap="round"/>
+                    <circle cx="93" cy="88" r="3" fill="#38bdf8"/>
+                    <rect x="44" y="60" width="32" height="26" rx="5" fill="#060f1e" stroke="#00e5ff" stroke-width="2.5"/>
+                    <path d="M51 60V51C51 46.03 55.03 42 60 42C64.97 42 69 46.03 69 51V60" stroke="#00e5ff" stroke-width="3" stroke-linecap="round"/>
+                    <circle cx="60" cy="71" r="3" fill="#00e5ff"/>
+                    <path d="M59 74L57.5 80H62.5L61 74" stroke="#00e5ff" stroke-width="2" fill="#00e5ff"/>
+                    <line x1="52" y1="92" x2="52" y2="108" stroke="#00e5ff" stroke-width="2"/>
+                    <circle cx="52" cy="108" r="2.5" fill="#38bdf8"/>
+                    <line x1="68" y1="92" x2="68" y2="108" stroke="#00e5ff" stroke-width="2"/>
+                    <circle cx="68" cy="108" r="2.5" fill="#38bdf8"/>
+                </svg>
+            </div>
+
+            <!-- Title & Subtitle -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-center lg:justify-start gap-3.5">
+                    <span class="brand-title-metallic">AI-IDS</span>
+                    <span class="engine-pill px-3 py-1 text-xs font-extrabold font-mono tracking-widest text-[#00e5c9] rounded-md">ENGINE</span>
+                </div>
+                <p class="text-xs font-bold tracking-[0.24em] text-slate-300 uppercase pt-1">AI-BASED INTRUSION DETECTION SYSTEM</p>
+            </div>
+
+            <div class="pt-1">
+                <span class="px-4 py-1.5 text-xs font-mono font-medium text-slate-400 bg-[#060e1c] border border-slate-800/90 rounded-full shadow-inner flex items-center gap-2 w-fit">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    v3.4.12 Enterprise
+                </span>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: CLEAN DIRECT LOGIN CARD -->
+        <div class="w-full max-w-[370px]">
+            <div class="aiids-card p-7 sm:p-8 space-y-6">
+
+                <div class="text-left space-y-1">
+                    <h2 class="text-2xl font-bold tracking-tight text-white">Welcome Back</h2>
+                    <p class="text-xs text-slate-400">Sign in to your account to continue</p>
+                </div>
+
+                <!-- Flash Error Messages -->
+                {% with messages = get_flashed_messages() %}
+                  {% if messages %}
+                    <div class="p-2.5 rounded bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs">
+                      {{ messages[0] }}
+                    </div>
+                  {% endif %}
+                {% endwith %}
+
+                <form method="POST" action="/login" class="space-y-4">
+                    <!-- Username -->
+                    <div class="space-y-1 text-left">
+                        <label class="text-xs font-medium text-slate-300">Username</label>
+                        <div class="relative flex items-center">
+                            <span class="absolute left-3.5 text-slate-400 pointer-events-none">
+                                <i data-lucide="user" class="w-4 h-4"></i>
+                            </span>
+                            <input
+                                type="text"
+                                name="username"
+                                required
+                                placeholder="Username"
+                                value="admin"
+                                class="custom-input w-full pl-10 pr-4 py-2.5 rounded-lg text-xs font-medium placeholder-slate-500"
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Password -->
+                    <div class="space-y-1 text-left">
+                        <label class="text-xs font-medium text-slate-300">Password</label>
+                        <div class="relative flex items-center">
+                            <span class="absolute left-3.5 text-slate-400 pointer-events-none">
+                                <i data-lucide="lock" class="w-4 h-4"></i>
+                            </span>
+                            <input
+                                type="password"
+                                name="password"
+                                id="passwordInput"
+                                required
+                                placeholder="Password"
+                                value="admin"
+                                class="custom-input w-full pl-10 pr-10 py-2.5 rounded-lg text-xs font-medium placeholder-slate-500"
+                            >
+                            <button type="button" onclick="togglePassword()" class="absolute right-3.5 text-slate-400 hover:text-slate-200 transition">
+                                <i data-lucide="eye" id="eyeIcon" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="btn-radiant-cyan w-full py-2.5 rounded-lg text-xs tracking-wider uppercase mt-4">
+                        LOGIN
+                    </button>
+                </form>
+
+                <!-- Footer Console Badge -->
+                <div class="pt-4 border-t border-slate-800/80 text-center">
+                    <div class="inline-flex items-center gap-1.5 text-[11px] text-slate-400 font-medium">
+                        <i data-lucide="shield" class="w-3.5 h-3.5 text-[#00e5c9]"></i>
+                        <span>Secure Enterprise Console</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        lucide.createIcons();
+
+        function togglePassword() {
+            const pwd = document.getElementById("passwordInput");
+            const eye = document.getElementById("eyeIcon");
+            if (pwd.type === "password") {
+                pwd.type = "text";
+                eye.setAttribute("data-lucide", "eye-off");
+            } else {
+                pwd.type = "password";
+                eye.setAttribute("data-lucide", "eye");
+            }
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>
