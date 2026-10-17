@@ -10,8 +10,45 @@
         <p class="text-xs text-slate-400 mt-0.5">Upload network flow captures (CSV) for real-time AI intrusion detection inference</p>
     </div>
     <div class="flex items-center gap-3">
+        <!-- Sound Control Toggle Button -->
+        <button id="soundToggleBtn" onclick="toggleSound()" type="button" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-[#081122] text-xs text-slate-300 hover:text-white font-mono flex items-center gap-1.5 transition cursor-pointer" title="Toggle intrusion alarm ringtone">
+            <i id="soundToggleIcon" data-lucide="volume-2" class="w-3.5 h-3.5 text-cyan-400"></i>
+            <span id="soundToggleText">Alarm: ON</span>
+        </button>
         <a href="{{ url_for('threats_page') }}" class="px-3 py-1.5 rounded-lg bg-[#0c1c38] border border-[#00d2ff]/30 text-xs text-slate-300 hover:text-white font-mono transition">
             <i data-lucide="shield-alert" class="w-3.5 h-3.5 inline mr-1 text-cyan-400"></i> View Threat Results
+        </a>
+    </div>
+</div>
+
+<!-- DEDICATED THREAT ALARM NOTIFICATION BANNER (Shown when threats > 0) -->
+<div id="threatAlarmBanner" class="hidden p-4 rounded-xl border border-rose-500/60 bg-[#16060c] text-rose-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-[0_0_25px_rgba(244,63,94,0.35)] transition-all duration-300">
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
+            <i id="alarmBellIcon" data-lucide="bell-ring" class="w-5 h-5 text-rose-400"></i>
+        </div>
+        <div>
+            <div class="font-bold text-white text-sm flex items-center gap-2">
+                <span>Threats Detected — Check Analysis Results</span>
+                <span id="alarmThreatCountBadge" class="px-2 py-0.5 rounded-full bg-rose-500/30 text-rose-300 border border-rose-500/40 text-[10px] font-mono">0 Threats</span>
+            </div>
+            <p id="alarmThreatDetailText" class="text-[11px] text-rose-300/90 mt-0.5 font-mono"></p>
+        </div>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+        <!-- Enable Sound Button (shown if browser blocked autoplay) -->
+        <button id="enableSoundBtn" onclick="enableAndPlaySound()" type="button" class="hidden px-3 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30 text-xs font-bold font-mono flex items-center gap-1.5 transition cursor-pointer" title="Enable browser audio">
+            <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
+            <span>Enable Sound</span>
+        </button>
+        <!-- Stop Alarm Button (active when alarm is playing) -->
+        <button id="stopAlarmBtn" onclick="stopAlarm()" type="button" class="px-3 py-1.5 rounded-lg bg-rose-500 text-black hover:bg-rose-400 text-xs font-bold font-mono flex items-center gap-1.5 transition shadow-lg cursor-pointer" title="Stop alarm ringtone">
+            <i data-lucide="square" class="w-3 h-3 fill-black"></i>
+            <span>Stop Alarm</span>
+        </button>
+        <a href="{{ url_for('threats_page') }}" class="btn-cyan px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5">
+            <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>
+            <span>View Threats</span>
         </a>
     </div>
 </div>
@@ -50,20 +87,17 @@
                     <p class="text-xs font-bold text-slate-200">
                         Drop your CSV file here, or <span class="text-[#00d2ff] underline">browse</span>
                     </p>
-                    <p class="text-[11px] text-slate-400 font-mono mt-1">Supports CIC-IDS2017 format (.csv) &bull; Max 20 MB (up to 50,000 flows)</p>
+                    <p class="text-[11px] text-slate-400 font-mono mt-1">Supports CIC-IDS2017 format (.csv) &bull; Maximum upload size: 100 MB</p>
                 </div>
             </div>
         </div>
 
-        <!-- CLOUD MEMORY & SAMPLING NOTICE -->
+        <!-- CAPTURE SPECIFICATION NOTICE -->
         <div class="p-3.5 rounded-xl bg-cyan-500/5 border border-cyan-500/20 text-[11px] text-slate-400 font-mono flex items-start gap-2.5">
             <i data-lucide="info" class="w-4 h-4 text-cyan-400 shrink-0 mt-0.5"></i>
             <div>
-                <span class="text-slate-200 font-bold">Cloud Memory Limit:</span>
-                Captures up to <span class="text-cyan-400 font-bold">20 MB</span> (up to 50,000 flows) are supported for cloud memory safety.
-                To analyze larger multi-GB datasets (such as 56 MB full-day captures), sample the file before uploading:
-                <code class="text-cyan-300 bg-[#050c18] px-1.5 py-0.5 rounded text-[10px] ml-1">df.head(50000).to_csv('sample.csv', index=False)</code>
-                or use the included synthetic sample dataset.
+                <span class="text-slate-200 font-bold">CIC-IDS2017 Capture Support:</span>
+                Upload complete network flow captures (.csv) containing all 78 standard features. Datasets are classified in memory-safe batches of 10,000 flows using the Random Forest multi-class intrusion detection model.
             </div>
         </div>
 
@@ -202,6 +236,185 @@
     let selectedFile = null;
     let pollInterval = null;
 
+    // ============================================================
+    // AUDIBLE INTRUSION ALARM & NOTIFICATION SYSTEM
+    // ============================================================
+    let audioCtx = null;
+    let activeAlarmOscillators = [];
+    let isAlarmPlaying = false;
+    let isSoundMuted = localStorage.getItem('ai_ids_alarm_muted') === '1';
+    let lastAlarmedJobId = null;
+
+    function getAudioContext() {
+        if (!audioCtx) {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (AudioContextClass) {
+                audioCtx = new AudioContextClass();
+            }
+        }
+        return audioCtx;
+    }
+
+    function primeAudioContext() {
+        const ctx = getAudioContext();
+        if (ctx && ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+        }
+    }
+
+    function toggleSound() {
+        isSoundMuted = !isSoundMuted;
+        localStorage.setItem('ai_ids_alarm_muted', isSoundMuted ? '1' : '0');
+        if (isSoundMuted && isAlarmPlaying) {
+            stopAlarm();
+        }
+        updateSoundToggleUI();
+    }
+
+    function updateSoundToggleUI() {
+        const btnText = document.getElementById('soundToggleText');
+        const icon = document.getElementById('soundToggleIcon');
+        const btn = document.getElementById('soundToggleBtn');
+        if (!btnText || !icon) return;
+
+        if (isSoundMuted) {
+            btnText.textContent = 'Alarm: Muted';
+            icon.setAttribute('data-lucide', 'volume-x');
+            if (btn) {
+                btn.className = 'px-3 py-1.5 rounded-lg border border-rose-500/30 bg-[#081122] text-xs text-rose-300 hover:text-white font-mono flex items-center gap-1.5 transition cursor-pointer';
+            }
+        } else {
+            btnText.textContent = 'Alarm: ON';
+            icon.setAttribute('data-lucide', 'volume-2');
+            if (btn) {
+                btn.className = 'px-3 py-1.5 rounded-lg border border-slate-700 bg-[#081122] text-xs text-slate-300 hover:text-white font-mono flex items-center gap-1.5 transition cursor-pointer';
+            }
+        }
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function stopAlarm() {
+        activeAlarmOscillators.forEach(({ osc, gain }) => {
+            try {
+                if (gain && gain.gain) {
+                    gain.gain.setValueAtTime(0, audioCtx ? audioCtx.currentTime : 0);
+                }
+                if (osc) {
+                    osc.stop();
+                    osc.disconnect();
+                }
+            } catch (e) {}
+        });
+        activeAlarmOscillators = [];
+        isAlarmPlaying = false;
+        updateStopAlarmUI(false);
+    }
+
+    function updateStopAlarmUI(isPlaying) {
+        const stopBtn = document.getElementById('stopAlarmBtn');
+        const bellIcon = document.getElementById('alarmBellIcon');
+        if (!stopBtn) return;
+
+        if (isPlaying) {
+            stopBtn.classList.remove('hidden');
+            stopBtn.innerHTML = '<i data-lucide="square" class="w-3 h-3 fill-black"></i><span>Stop Alarm</span>';
+            if (bellIcon) bellIcon.classList.add('animate-pulse');
+        } else {
+            stopBtn.innerHTML = '<i data-lucide="check" class="w-3 h-3"></i><span>Alarm Silenced</span>';
+            if (bellIcon) bellIcon.classList.remove('animate-pulse');
+        }
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function triggerAlarmTone() {
+        if (isSoundMuted) return;
+        stopAlarm();
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        if (ctx.state === 'suspended') {
+            ctx.resume().then(() => {
+                playSirenSequence(ctx);
+            }).catch((err) => {
+                console.warn('Browser blocked autoplay:', err);
+                const enableBtn = document.getElementById('enableSoundBtn');
+                if (enableBtn) enableBtn.classList.remove('hidden');
+            });
+            return;
+        }
+
+        playSirenSequence(ctx);
+    }
+
+    function playSirenSequence(ctx) {
+        if (isSoundMuted) return;
+        try {
+            const now = ctx.currentTime;
+            const masterGain = ctx.createGain();
+            masterGain.connect(ctx.destination);
+
+            // Two-tone alert siren: 3 distinct alarm pulses (~2.2s total duration)
+            const cycles = 3;
+            const pulseDuration = 0.6;
+            const pause = 0.15;
+            const totalDuration = cycles * (pulseDuration + pause);
+
+            const osc = ctx.createOscillator();
+            osc.type = 'sawtooth';
+
+            for (let i = 0; i < cycles; i++) {
+                const pStart = now + i * (pulseDuration + pause);
+                const pMid = pStart + (pulseDuration * 0.45);
+                const pEnd = pStart + pulseDuration;
+
+                // High urgency warble (880 Hz -> 587.33 Hz)
+                osc.frequency.setValueAtTime(880, pStart);
+                osc.frequency.exponentialRampToValueAtTime(587.33, pMid);
+                osc.frequency.setValueAtTime(880, pMid);
+                osc.frequency.exponentialRampToValueAtTime(587.33, pEnd);
+
+                // Gain envelope per pulse
+                masterGain.gain.setValueAtTime(0.28, pStart);
+                masterGain.gain.exponentialRampToValueAtTime(0.001, pEnd);
+            }
+
+            masterGain.gain.setValueAtTime(0.001, now + totalDuration);
+
+            osc.connect(masterGain);
+            osc.start(now);
+            osc.stop(now + totalDuration);
+
+            activeAlarmOscillators.push({ osc, gain: masterGain });
+            isAlarmPlaying = true;
+            updateStopAlarmUI(true);
+
+            osc.onended = () => {
+                isAlarmPlaying = false;
+                updateStopAlarmUI(false);
+                const idx = activeAlarmOscillators.findIndex(item => item.osc === osc);
+                if (idx !== -1) activeAlarmOscillators.splice(idx, 1);
+            };
+        } catch (e) {
+            console.error('Audio playback error:', e);
+        }
+    }
+
+    function enableAndPlaySound() {
+        const ctx = getAudioContext();
+        if (ctx) {
+            ctx.resume().then(() => {
+                document.getElementById('enableSoundBtn')?.classList.add('hidden');
+                if (!isSoundMuted) {
+                    triggerAlarmTone();
+                }
+            });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        updateSoundToggleUI();
+    });
+
     // File Input & Drag & Drop Handling
     const fileInput = document.getElementById('trafficFileInput');
     const dropZone = document.getElementById('dropZone');
@@ -239,18 +452,22 @@
             return;
         }
 
-        if (file.size > 20 * 1024 * 1024) {
-            showAlert('error', 'File Size Limit Exceeded', `The selected file is ${(file.size / (1024 * 1024)).toFixed(1)} MB. The platform limit is 20 MB (up to 50,000 flows) for cloud memory safety. Please use a smaller CSV sample (e.g., df.head(50000).to_csv(...)).`);
+        const maxFileSize = 100 * 1024 * 1024;
+        if (file.size > maxFileSize) {
+            showAlert('error', 'File Size Limit Exceeded', `The selected file is ${(file.size / (1024 * 1024)).toFixed(1)} MB. The platform limit is 100 MB for cloud memory safety.`);
             return;
         }
 
         selectedFile = file;
         displayFileName.textContent = file.name;
-        displayFileSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
+        const sizeFormatted = file.size >= 1024 * 1024
+            ? (file.size / (1024 * 1024)).toFixed(2) + ' MB'
+            : (file.size / 1024).toFixed(1) + ' KB';
+        displayFileSize.textContent = sizeFormatted;
         selectedFileInfo.classList.remove('hidden');
 
         // Update Step 1 indicator
-        setStepState(1, 'completed', 'Step 1: CSV Selected', file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)');
+        setStepState(1, 'completed', 'Step 1: CSV Selected', file.name + ' (' + sizeFormatted + ')');
         setStepState(2, 'active', 'Step 2: Validate Data', 'Ready to verify features');
         dismissAlert();
     }
@@ -366,6 +583,11 @@
             return;
         }
 
+        primeAudioContext();
+        stopAlarm();
+        document.getElementById('threatAlarmBanner')?.classList.add('hidden');
+        document.getElementById('enableSoundBtn')?.classList.add('hidden');
+
         if (pollInterval) {
             clearInterval(pollInterval);
             pollInterval = null;
@@ -446,6 +668,11 @@
     }
 
     function onAnalysisSuccess(summary, jobId) {
+        if (jobId && lastAlarmedJobId === jobId) {
+            // Guard against duplicate execution for the same analysis job
+            return;
+        }
+
         if (jobId) {
             const dlBtn = document.getElementById('downloadResultsBtn');
             if (dlBtn) {
@@ -479,11 +706,58 @@
         // Reveal navigation actions
         document.getElementById('analysisCompleteActions').classList.remove('hidden');
 
-        showAlert('success', 'Analysis Completed Successfully',
-            `Classified ${summary.total_records.toLocaleString()} network flows. Identified ${summary.threat_count.toLocaleString()} threats (${summary.threat_percentage}% threat rate). Real results are ready across the console.`);
+        // Check malicious threat detections from actual ML predictions
+        const threatCount = (summary && typeof summary.threat_count === 'number')
+            ? summary.threat_count
+            : 0;
+
+        const threatBanner = document.getElementById('threatAlarmBanner');
+        const threatBadge = document.getElementById('alarmThreatCountBadge');
+        const threatDetail = document.getElementById('alarmThreatDetailText');
+
+        if (threatCount > 0) {
+            // MALICIOUS FLOWS DETECTED: Show threat alert and play alarm once
+            dismissAlert();
+
+            if (threatBanner) {
+                threatBanner.classList.remove('hidden');
+                if (threatBadge) {
+                    threatBadge.textContent = `${threatCount.toLocaleString()} Threat(s) Detected`;
+                }
+                if (threatDetail) {
+                    threatDetail.textContent = `AI model detected ${threatCount.toLocaleString()} malicious flow(s) (${summary.threat_percentage || 0}% threat rate) out of ${summary.total_records.toLocaleString()} analyzed flows. Recommended: Inspect incidents and take containment actions.`;
+                }
+            }
+
+            // Play alarm ringtone exactly once per completed analysis
+            if (jobId && lastAlarmedJobId !== jobId) {
+                lastAlarmedJobId = jobId;
+                if (!isSoundMuted) {
+                    triggerAlarmTone();
+                }
+            }
+        } else {
+            // BENIGN TRAFFIC ONLY: No alarm sound, show positive completion notification
+            if (threatBanner) {
+                threatBanner.classList.add('hidden');
+            }
+            stopAlarm();
+
+            if (jobId) {
+                lastAlarmedJobId = jobId;
+            }
+
+            showAlert('success', 'Analysis Completed — All Network Flows Benign',
+                `Classified ${summary.total_records.toLocaleString()} network flows. Zero malicious intrusions detected. All traffic evaluated as normal network behavior.`);
+        }
+
+        if (window.lucide) lucide.createIcons();
     }
 
     function onAnalysisError(msg) {
+        stopAlarm();
+        document.getElementById('threatAlarmBanner')?.classList.add('hidden');
+
         const runBtn = document.getElementById('runAnalysisBtn');
         const btnText = document.getElementById('btnText');
         const progressBar = document.getElementById('analysisProgressBar');

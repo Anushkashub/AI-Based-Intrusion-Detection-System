@@ -35,6 +35,7 @@ from src.predict import (
 import os
 import uuid
 import threading
+import gc
 import numpy as np
 import pandas as pd
 
@@ -77,12 +78,8 @@ else:
         # Ephemeral cryptographically random secret key for local development
         app.secret_key = secrets.token_hex(32)
 
-# Enforce 100 MB max file upload size limit to prevent resource exhaustion attacks
-app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024
-
-# Analysis pipeline limits tailored for Render Free Tier (512 MB memory boundary)
-MAX_ANALYSIS_FILE_SIZE = 20 * 1024 * 1024  # 20 MB max CSV file size
-MAX_ANALYSIS_ROWS = 50000                  # 50,000 max flows to guarantee <120 MB DataFrame memory
+# Configure request body size limit (defaults to 105 MB, configurable via MAX_CONTENT_LENGTH)
+app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_CONTENT_LENGTH", 105 * 1024 * 1024))
 
 
 # ============================================================
@@ -133,7 +130,35 @@ SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(BASE_DIR, "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 RESULTS_FILENAME = "dashboard_analysis_results.csv"
+MAX_ANALYSIS_FILE_SIZE = int(os.environ.get("MAX_ANALYSIS_FILE_SIZE", 100 * 1024 * 1024))
+
+
+def _dashboard_results_version():
+    results_path = os.path.join(RESULTS_DIR, RESULTS_FILENAME)
+    try:
+        results_stat = os.stat(results_path)
+    except FileNotFoundError:
+        return None
+    return f"{results_stat.st_mtime_ns}:{results_stat.st_size}"
+
+
+def _is_analysis_valid_for_session():
+    """
+    Determines whether analysis results are active and valid for the current user session.
+    Returns False before any analysis is executed in this session or after clicking Reset Metrics.
+    Returns True only after an analysis has completed in this session and results exist on disk.
+    """
+    if not session.get("logged_in"):
+        return False
+    if not session.get("session_analysis_active"):
+        return False
+    results_path = os.path.join(RESULTS_DIR, RESULTS_FILENAME)
+    if not os.path.exists(results_path):
+        return False
+    return True
 
 
 # ============================================================
@@ -214,6 +239,9 @@ def login():
         session.clear()
         session["logged_in"] = True
         session["username"] = username
+        session["session_analysis_active"] = False
+        session["session_analysis_job_id"] = None
+        session["dashboard_results_version_at_login"] = _dashboard_results_version()
 
         if request.is_json:
             return jsonify({
@@ -407,10 +435,17 @@ def dashboard():
     }
 
     recent_alerts = []
-    results_path = os.path.join(RESULTS_DIR, RESULTS_FILENAME)
 
-    if os.path.exists(results_path):
+    active_job_id = session.get("session_analysis_job_id")
+    if active_job_id and not session.get("session_analysis_active"):
+        with analysis_lock:
+            job = analysis_jobs.get(active_job_id)
+            if job and job.get("status") == "completed":
+                session["session_analysis_active"] = True
+
+    if _is_analysis_valid_for_session():
         try:
+            results_path = os.path.join(RESULTS_DIR, RESULTS_FILENAME)
             result_df = pd.read_csv(results_path)
             total_records = int(len(result_df))
             if total_records > 0:
@@ -509,7 +544,14 @@ def threats_page():
 
     results_path = os.path.join(RESULTS_DIR, RESULTS_FILENAME)
 
-    if os.path.exists(results_path):
+    active_job_id = session.get("session_analysis_job_id")
+    if active_job_id and not session.get("session_analysis_active"):
+        with analysis_lock:
+            job = analysis_jobs.get(active_job_id)
+            if job and job.get("status") == "completed":
+                session["session_analysis_active"] = True
+
+    if _is_analysis_valid_for_session():
         try:
             result_df = pd.read_csv(results_path)
             total_records = len(result_df)
@@ -598,12 +640,28 @@ def reports_page():
         return gate
 
     results_path = os.path.join(RESULTS_DIR, RESULTS_FILENAME)
-    has_results = os.path.exists(results_path)
+    active_job_id = session.get("session_analysis_job_id")
+    if active_job_id and not session.get("session_analysis_active"):
+        with analysis_lock:
+            job = analysis_jobs.get(active_job_id)
+            if job and job.get("status") == "completed":
+                session["session_analysis_active"] = True
+    file_exists = os.path.exists(results_path)
+    has_results = _is_analysis_valid_for_session() and file_exists
+    filesize_str = "0 KB"
+    last_mod_str = "N/A"
+    if has_results and file_exists:
+        try:
+            filesize_str = f"{round(os.path.getsize(results_path) / 1024, 1)} KB"
+            last_mod_str = pd.Timestamp(os.path.getmtime(results_path), unit='s').strftime("%Y-%m-%d %H:%M:%S")
+        except OSError:
+            pass
+
     report_metadata = {
         "has_results": has_results,
         "filename": RESULTS_FILENAME if has_results else "None",
-        "filesize": f"{round(os.path.getsize(results_path) / 1024, 1)} KB" if has_results else "0 KB",
-        "last_modified": pd.Timestamp(os.path.getmtime(results_path), unit='s').strftime("%Y-%m-%d %H:%M:%S") if has_results else "N/A",
+        "filesize": filesize_str,
+        "last_modified": last_mod_str,
         "total_records": 0,
         "threat_count": 0
     }
@@ -669,10 +727,9 @@ def system_info():
 # INCIDENT MANAGEMENT (PAGE 5) - FIXED ROUTES
 # ============================================================
 
-@app.route("/incidents")
-@app.route("/incident-management")
-@app.route("/incident-management", endpoint="incident_management_page")
 @app.route("/incidents-page")
+@app.route("/incident-management", endpoint="incident_management_page")
+@app.route("/incidents")
 def incidents_view():
     gate = _page_requires_login()
     if gate:
@@ -947,7 +1004,7 @@ def _prune_analysis_jobs():
             analysis_jobs.pop(jid, None)
 
 
-def run_analysis_job(job_id, X, filename, total_rows, valid_rows):
+def run_analysis_job(job_id, upload_path, filename, selected_cols, total_rows):
     temp_dashboard_path = None
     try:
         with analysis_lock:
@@ -955,58 +1012,92 @@ def run_analysis_job(job_id, X, filename, total_rows, valid_rows):
                 analysis_jobs[job_id].update({
                     "status": "processing",
                     "progress": 15,
-                    "message": f"Classifying {valid_rows:,} network flows with AI model..."
+                    "message": "Classifying network flows with AI model..."
                 })
-
-        predictions = predict_batch(X, batch_size=10000, show_progress=False)
-
-        with analysis_lock:
-            if job_id in analysis_jobs:
-                analysis_jobs[job_id].update({
-                    "progress": 70,
-                    "message": "Aggregating classification results and incidents..."
-                })
-
-        results = [
-            {
-                "record": i + 1,
-                "class_id": int(p["class_id"]),
-                "attack_type": str(p["attack_type"]),
-                "risk_level": str(p["risk_level"]),
-                "recommended_action": get_response_recommendation(p["attack_type"]),
-                "timestamp": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-            for i, p in enumerate(predictions)
-        ]
-        results_df = pd.DataFrame(results)
 
         os.makedirs(RESULTS_DIR, exist_ok=True)
-
-        # 1. Job-specific result file (concurrency isolation)
         job_result_filename = f"results_{job_id}.csv"
         job_output_path = os.path.join(RESULTS_DIR, job_result_filename)
-        results_df.to_csv(job_output_path, index=False)
-
-        # 2. Shared dashboard output file via atomic replace
         dashboard_output_path = os.path.join(RESULTS_DIR, RESULTS_FILENAME)
         temp_dashboard_path = os.path.join(RESULTS_DIR, f"{RESULTS_FILENAME}.{job_id}.tmp")
-        results_df.to_csv(temp_dashboard_path, index=False)
+
+        if os.path.exists(job_output_path):
+            try:
+                os.remove(job_output_path)
+            except OSError:
+                pass
+        if os.path.exists(temp_dashboard_path):
+            try:
+                os.remove(temp_dashboard_path)
+            except OSError:
+                pass
+
+        attack_counts = {}
+        valid_rows = 0
+        record_offset = 0
+        first_chunk = True
+        now_timestamp = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Stream CSV in memory-safe chunks of 10,000 flows
+        chunksize = 10000
+        try:
+            csv_iterator = pd.read_csv(upload_path, usecols=selected_cols, chunksize=chunksize)
+        except UnicodeDecodeError:
+            csv_iterator = pd.read_csv(upload_path, usecols=selected_cols, chunksize=chunksize, encoding="latin1")
+
+        for chunk in csv_iterator:
+            chunk_ordered = chunk[selected_cols]
+            chunk_clean = chunk_ordered.apply(pd.to_numeric, errors="coerce").replace([np.inf, -np.inf], np.nan).dropna()
+            if len(chunk_clean) == 0:
+                continue
+
+            chunk_preds = predict_batch(chunk_clean, batch_size=chunksize, show_progress=False)
+
+            chunk_records = []
+            for i, p in enumerate(chunk_preds):
+                att = str(p["attack_type"]).strip()
+                att_upper = att.upper()
+                attack_counts[att_upper] = attack_counts.get(att_upper, 0) + 1
+                chunk_records.append({
+                    "record": record_offset + i + 1,
+                    "class_id": int(p["class_id"]),
+                    "attack_type": att,
+                    "risk_level": str(p["risk_level"]),
+                    "recommended_action": get_response_recommendation(att),
+                    "timestamp": now_timestamp
+                })
+
+            chunk_res_df = pd.DataFrame(chunk_records)
+            chunk_res_df.to_csv(job_output_path, mode="a", header=first_chunk, index=False)
+            chunk_res_df.to_csv(temp_dashboard_path, mode="a", header=first_chunk, index=False)
+            first_chunk = False
+
+            record_offset += len(chunk_records)
+            valid_rows += len(chunk_records)
+
+            pct = min(85, int(15 + 70 * (record_offset / max(1, total_rows))))
+            with analysis_lock:
+                if job_id in analysis_jobs:
+                    analysis_jobs[job_id].update({
+                        "progress": pct,
+                        "processed": valid_rows,
+                        "message": f"Classifying network flows ({pct}%)..."
+                    })
+
+            del chunk, chunk_ordered, chunk_clean, chunk_preds, chunk_records, chunk_res_df
+            gc.collect()
+
+        if valid_rows == 0:
+            raise ValueError("No valid numerical records remaining after cleaning missing or infinite values.")
+
         with results_file_lock:
             os.replace(temp_dashboard_path, dashboard_output_path)
             temp_dashboard_path = None
 
-        attack_counts = (
-            results_df["attack_type"]
-            .astype(str)
-            .str.strip()
-            .str.upper()
-            .value_counts()
-        )
         benign_count = int(attack_counts.get("BENIGN", 0))
-        total_count = len(results_df)
-        threat_count = int(total_count - benign_count)
-        threat_percentage = round((threat_count / total_count * 100), 2) if total_count > 0 else 0
-        benign_percentage = round((benign_count / total_count * 100), 2) if total_count > 0 else 0
+        threat_count = int(valid_rows - benign_count)
+        threat_percentage = round((threat_count / valid_rows * 100), 2) if valid_rows > 0 else 0
+        benign_percentage = round((benign_count / valid_rows * 100), 2) if valid_rows > 0 else 0
 
         # Auto-create incident records for detected attacks
         if threat_count > 0:
@@ -1020,12 +1111,12 @@ def run_analysis_job(job_id, X, filename, total_rows, valid_rows):
                     )
 
         summary = {
-            "total_records": total_count,
+            "total_records": valid_rows,
             "benign_count": benign_count,
             "threat_count": threat_count,
             "threat_percentage": threat_percentage,
             "benign_percentage": benign_percentage,
-            "attack_classes": int(len(attack_counts)),
+            "attack_classes": int(len([k for k in attack_counts.keys() if k != "BENIGN"])),
             "features_used": int(len(feature_names)),
             "attack_distribution": {str(k): int(v) for k, v in attack_counts.items()}
         }
@@ -1035,8 +1126,9 @@ def run_analysis_job(job_id, X, filename, total_rows, valid_rows):
                 analysis_jobs[job_id].update({
                     "status": "completed",
                     "progress": 100,
-                    "processed": total_count,
-                    "total": total_count,
+                    "processed": valid_rows,
+                    "total": valid_rows,
+                    "valid_rows": valid_rows,
                     "result_file": job_result_filename,
                     "message": "Analysis completed successfully.",
                     "summary": summary
@@ -1055,6 +1147,12 @@ def run_analysis_job(job_id, X, filename, total_rows, valid_rows):
                     "error": str(e),
                     "message": f"Analysis failed: {str(e)}"
                 })
+    finally:
+        if upload_path and os.path.exists(upload_path):
+            try:
+                os.remove(upload_path)
+            except OSError:
+                pass
 
 
 @app.route("/analyze_csv", methods=["POST"])
@@ -1079,7 +1177,7 @@ def analyze_csv():
     if not raw_filename.lower().endswith(".csv"):
         return jsonify({"status": "error", "error": "Invalid file format. Only CSV files (.csv) are supported."}), 400
 
-    # Validate file size against memory safety limit
+    # Validate file size against 100 MB platform memory safety limit
     file.seek(0, os.SEEK_END)
     file_size_bytes = file.tell()
     file.seek(0)
@@ -1089,65 +1187,41 @@ def analyze_csv():
         max_mb = int(MAX_ANALYSIS_FILE_SIZE / (1024 * 1024))
         return jsonify({
             "status": "error",
-            "error": f"The uploaded file ({size_mb} MB) exceeds the platform memory limit of {max_mb} MB. Please upload a smaller capture sample (up to {MAX_ANALYSIS_ROWS:,} flows).",
+            "error": f"The selected file is {size_mb} MB. The platform limit is {max_mb} MB for cloud memory safety.",
             "max_allowed_mb": max_mb,
             "uploaded_size_mb": size_mb
         }), 400
 
-    # Fast streaming row-count pre-validation to protect cloud memory limits without loading full DataFrame
-    file.seek(0)
-    line_count = 0
-    last_char = b""
-    while True:
-        chunk = file.read(65536)
-        if not chunk:
-            break
-        line_count += chunk.count(b"\n")
-        last_char = chunk[-1:]
-    if last_char and last_char != b"\n":
-        line_count += 1
-    file.seek(0)
-
-    approx_rows = max(0, line_count - 1)
-    if approx_rows > MAX_ANALYSIS_ROWS:
-        return jsonify({
-            "status": "error",
-            "error": f"The uploaded dataset contains {approx_rows:,} records, which exceeds the memory safety limit of {MAX_ANALYSIS_ROWS:,} flows on the cloud service. Please provide a capture with {MAX_ANALYSIS_ROWS:,} or fewer flows (e.g. using 'df.head({MAX_ANALYSIS_ROWS}).to_csv(...)').",
-            "total_rows": approx_rows,
-            "max_allowed_rows": MAX_ANALYSIS_ROWS
-        }), 400
-
+    # Fast header validation to verify the required features without loading full dataset
     try:
-        df = pd.read_csv(file)
+        sample_df = pd.read_csv(file, nrows=1)
+    except pd.errors.EmptyDataError:
+        return jsonify({"status": "error", "error": "The uploaded CSV file is empty."}), 400
     except UnicodeDecodeError:
         try:
             file.seek(0)
-            df = pd.read_csv(file, encoding="latin1")
+            sample_df = pd.read_csv(file, nrows=1, encoding="latin1")
+        except pd.errors.EmptyDataError:
+            return jsonify({"status": "error", "error": "The uploaded CSV file is empty."}), 400
         except Exception as exc:
             app.logger.warning("Failed to parse uploaded CSV with latin1 fallback: %s", exc)
             return jsonify({"status": "error", "error": "Failed to parse CSV file. Ensure it is a valid, uncorrupted CSV file."}), 400
-    except Exception as e:
-        app.logger.warning("Failed to parse uploaded CSV: %s", str(e))
-        return jsonify({"status": "error", "error": "Failed to parse CSV file. Ensure it is a valid, uncorrupted CSV file."}), 400
-
-    if df.empty or len(df) == 0:
-        return jsonify({"status": "error", "error": "The uploaded CSV file is empty."}), 400
-
-    total_rows = len(df)
-
-    # Validate row count against memory safety limit (defense-in-depth)
-    if total_rows > MAX_ANALYSIS_ROWS:
+    except MemoryError:
         return jsonify({
             "status": "error",
-            "error": f"The uploaded dataset contains {total_rows:,} records, which exceeds the memory safety limit of {MAX_ANALYSIS_ROWS:,} flows on the cloud service. Please provide a capture with {MAX_ANALYSIS_ROWS:,} or fewer flows (e.g. using 'df.head({MAX_ANALYSIS_ROWS}).to_csv(...)').",
-            "total_rows": total_rows,
-            "max_allowed_rows": MAX_ANALYSIS_ROWS
-        }), 400
+            "error": "The uploaded file is too large to fit in available system memory. Please ensure the host machine has sufficient RAM."
+        }), 413
+    except Exception as e:
+        app.logger.warning("Failed to parse uploaded CSV: %s", str(e))
+        return jsonify({"status": "error", "error": f"Failed to parse CSV file: {str(e)}"}), 400
+
+    if sample_df.empty and len(sample_df.columns) == 0:
+        return jsonify({"status": "error", "error": "The uploaded CSV file is empty."}), 400
 
     clean_features = [str(f).strip() for f in feature_names]
     col_map = {}
     col_map_casefold = {}
-    for c in df.columns:
+    for c in sample_df.columns:
         c_clean = str(c).replace("\ufeff", "").strip()
         col_map[c_clean] = c
         col_map_casefold[c_clean.casefold()] = c
@@ -1172,16 +1246,28 @@ def analyze_csv():
             "missing_count": len(missing_features)
         }), 400
 
-    selected_cols_data = df[selected_cols].apply(pd.to_numeric, errors="coerce").replace([np.inf, -np.inf], np.nan).dropna()
-    valid_rows = len(selected_cols_data)
+    # Fast row estimation (streaming newline count, zero memory overhead)
+    file.seek(0)
+    line_count = 0
+    while True:
+        chunk_buf = file.read(1024 * 1024)
+        if not chunk_buf:
+            break
+        line_count += chunk_buf.count(b"\n")
+    approx_rows = max(0, line_count - 1)
+    file.seek(0)
 
-    if valid_rows == 0:
-        return jsonify({
-            "status": "error",
-            "error": "No valid numerical records remaining after cleaning missing or infinite values."
-        }), 400
+    if approx_rows == 0:
+        return jsonify({"status": "error", "error": "The uploaded CSV file contains no data rows."}), 400
 
     job_id = str(uuid.uuid4())
+    upload_path = os.path.join(UPLOAD_DIR, f"upload_{job_id}.csv")
+    file.save(upload_path)
+
+    session["session_analysis_job_id"] = job_id
+    session["session_analysis_active"] = False
+    session.modified = True
+
     with analysis_lock:
         _prune_analysis_jobs()
 
@@ -1189,15 +1275,15 @@ def analyze_csv():
             "status": "processing",
             "progress": 0,
             "filename": clean_filename,
-            "total_rows": total_rows,
-            "valid_rows": valid_rows,
+            "total_rows": approx_rows,
+            "valid_rows": approx_rows,
             "created_timestamp": time.time(),
             "created_at": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
         }
 
     threading.Thread(
         target=run_analysis_job,
-        args=(job_id, selected_cols_data, clean_filename, total_rows, valid_rows),
+        args=(job_id, upload_path, clean_filename, selected_cols, approx_rows),
         daemon=True
     ).start()
 
@@ -1205,8 +1291,8 @@ def analyze_csv():
         "status": "started",
         "job_id": job_id,
         "filename": clean_filename,
-        "total_rows": total_rows,
-        "valid_rows": valid_rows
+        "total_rows": approx_rows,
+        "valid_rows": approx_rows
     })
 
 
@@ -1220,7 +1306,38 @@ def analysis_progress(job_id):
         job = analysis_jobs.get(job_id)
         if not job:
             return jsonify({"status": "error", "error": "Analysis job not found."}), 404
+        if job.get("status") == "completed":
+            session["session_analysis_active"] = True
+            session["session_analysis_job_id"] = job_id
+            session.modified = True
         return jsonify(job)
+
+
+# ============================================================
+# RESET ANALYSIS STATE (SESSION SPECIFIC)
+# ============================================================
+
+@app.route("/api/reset-analysis", methods=["GET", "POST"])
+@app.route("/dashboard/reset", methods=["GET", "POST"])
+@app.route("/reset-analysis", methods=["GET", "POST"])
+def reset_analysis():
+    gate = _page_requires_login()
+    if gate:
+        if request.is_json:
+            return jsonify({"status": "error", "message": "Authentication required."}), 401
+        return gate
+
+    session["session_analysis_active"] = False
+    session["session_analysis_job_id"] = None
+    session.modified = True
+
+    if request.is_json or request.headers.get("Accept") == "application/json":
+        return jsonify({
+            "status": "success",
+            "message": "Analysis state reset successfully for current session."
+        })
+
+    return redirect(url_for("dashboard"))
 
 
 # ============================================================
@@ -1242,6 +1359,9 @@ def download_results():
         specific_path = os.path.join(RESULTS_DIR, specific_file)
         if os.path.exists(specific_path):
             target_filename = specific_file
+
+    if not job_id and not _is_analysis_valid_for_session():
+        return jsonify({"status": "error", "message": "No analysis results available for this session."}), 404
 
     results_path = os.path.join(RESULTS_DIR, target_filename)
     if not os.path.exists(results_path):
@@ -1342,7 +1462,7 @@ def api_search():
 
     # 2. Search Threat Records from dashboard analysis results
     results_path = os.path.join(RESULTS_DIR, RESULTS_FILENAME)
-    if os.path.exists(results_path):
+    if _is_analysis_valid_for_session():
         try:
             res_df = pd.read_csv(results_path)
             if not res_df.empty:
@@ -1424,7 +1544,8 @@ def method_not_allowed_error(e):
 @app.errorhandler(413)
 def file_too_large_error(e):
     if _is_api_request():
-        desc = getattr(e, "description", None) or "Uploaded file exceeds the maximum allowed size (100 MB)."
+        max_mb = int(app.config.get("MAX_CONTENT_LENGTH", 1024 * 1024 * 1024) / (1024 * 1024))
+        desc = getattr(e, "description", None) or f"Uploaded file exceeds the maximum allowed size ({max_mb} MB)."
         return jsonify({"status": "error", "error": str(desc)}), 413
     return redirect(url_for("traffic_analysis_page"))
 

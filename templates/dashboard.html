@@ -10,6 +10,10 @@
         <p class="text-xs text-slate-400 mt-0.5">Real-time network security overview and AI-powered intrusion detection</p>
     </div>
     <div class="flex items-center gap-3">
+        <button id="refreshButton" type="button" class="px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 font-bold border border-slate-700 text-slate-300 hover:text-white hover:border-cyan-400 transition" title="Reset current session analysis metrics">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            <span>Refresh / Reset</span>
+        </button>
         <a href="{{ url_for('traffic_analysis_page') }}" class="btn-cyan px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 font-bold">
             <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i>
             <span>Upload Traffic CSV</span>
@@ -17,8 +21,7 @@
     </div>
 </div>
 
-{% if dashboard_stats.has_analysis %}
-<!-- 4 KPI SUMMARY CARDS (REAL DATA) -->
+<!-- 4 KPI SUMMARY CARDS (ALWAYS VISIBLE - 0 BEFORE ANALYSIS / AFTER RESET) -->
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
     <!-- Card 1: Total Traffic -->
@@ -30,7 +33,7 @@
             </div>
         </div>
         <div>
-            <div class="text-2xl font-bold tracking-tight text-white font-mono">
+            <div id="metricTotalFlows" class="text-2xl font-bold tracking-tight text-white font-mono">
                 {{ "{:,}".format(dashboard_stats.total_traffic) }}
             </div>
             <div class="text-[10px] text-slate-400 mt-1 flex items-center gap-1 font-mono">
@@ -48,7 +51,7 @@
             </div>
         </div>
         <div>
-            <div class="text-2xl font-bold tracking-tight text-rose-400 font-mono">
+            <div id="metricThreats" class="text-2xl font-bold tracking-tight text-rose-400 font-mono">
                 {{ "{:,}".format(dashboard_stats.detected_threats) }}
             </div>
             <div class="text-[10px] text-slate-400 mt-1 font-mono">
@@ -66,7 +69,7 @@
             </div>
         </div>
         <div>
-            <div class="text-2xl font-bold tracking-tight text-emerald-400 font-mono">
+            <div id="metricBenign" class="text-2xl font-bold tracking-tight text-emerald-400 font-mono">
                 {{ "{:,}".format(dashboard_stats.benign_traffic) }}
             </div>
             <div class="text-[10px] text-slate-400 mt-1 font-mono">
@@ -95,6 +98,7 @@
 
 </div>
 
+{% if dashboard_stats.has_analysis %}
 <!-- ANALYTICS CHARTS SECTION -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -224,9 +228,9 @@
         <i data-lucide="network" class="w-8 h-8"></i>
     </div>
     <div class="space-y-2">
-        <h2 class="text-xl font-bold text-white tracking-wide">No Traffic Analysis Run Yet</h2>
+        <h2 class="text-xl font-bold text-white tracking-wide">No Traffic Analysis This Session</h2>
         <p class="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-            The AI intrusion detection system is online and ready. To generate live detection metrics, upload a network capture CSV file in Traffic Analysis.
+            The AI intrusion detection system is online and ready. Upload a network flow CSV in Traffic Analysis to generate metrics for this session.
         </p>
     </div>
     <div>
@@ -255,6 +259,27 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+    const refreshBtn = document.getElementById('refreshButton');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', async () => {
+            try {
+                refreshBtn.classList.add('opacity-50', 'pointer-events-none');
+                await fetch("{{ url_for('reset_analysis') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+            } catch (err) {
+                console.error('Reset request error:', err);
+            } finally {
+                window.location.href = "{{ url_for('dashboard') }}";
+            }
+        });
+    }
+</script>
 {% if dashboard_stats.has_analysis %}
 <script>
     // 1. Ratio Comparison Horizontal Bar Chart

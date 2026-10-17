@@ -2,6 +2,18 @@ import os
 import sys
 import pandas as pd
 
+# Safe console encoding configuration for Windows terminals
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+if hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from predict import predict_traffic, feature_names
@@ -75,9 +87,12 @@ for filename in datasets:
     # Predict
     result = predict_traffic(X_sample)
 
+    # Sanitize label from unmapped characters (e.g. \ufffd commonly in WebAttacks dataset)
+    clean_actual_label = str(sample[" Label"]).replace("\ufffd", "-").strip()
+
     results.append({
         "Dataset": filename,
-        "Actual": sample[" Label"],
+        "Actual": clean_actual_label,
         "Predicted": result["attack_type"],
         "Risk": result["risk_level"]
     })
@@ -94,6 +109,10 @@ print("=" * 70)
 print("MULTI-ATTACK VALIDATION RESULTS")
 print("=" * 70)
 
-print(results_df.to_string(index=False))
+try:
+    print(results_df.to_string(index=False))
+except UnicodeEncodeError:
+    safe_output = results_df.to_string(index=False).encode("ascii", errors="replace").decode("ascii")
+    print(safe_output)
 
 print("\nValidation completed successfully!")
